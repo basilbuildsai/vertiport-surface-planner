@@ -1,0 +1,909 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Vertiport Surface Planner</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: control panel on the left, satellite map filling the rest; stacks on phones. Single dark look, like an ops console. */
+:root {
+  --bg: #12161b;
+  --panel: #191f26;
+  --raise: #222a33;
+  --line: #2f3944;
+  --fg: #e6ebf0;
+  --muted: #8d9aa8;
+  --accent: #f2c230;      /* FATO yellow, also the UI accent */
+  --warn: #ff9f43;
+  --bad: #ff5d6c;
+  --ok: #5fd39a;
+  --c-tlof: #ffffff;
+  --c-fato: #f2c230;
+  --c-safety: #ff8a3d;
+  --c-hpz: #ff4d5e;
+  --c-dca: #d27bff;
+  --c-app: #3fd0ff;
+  --c-trans: #4fe0b0;
+  --f-display: "Barlow Condensed", "Arial Narrow", sans-serif;
+  --f-body: "Barlow", "Helvetica Neue", Arial, sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { height: 100%; margin: 0; }
+body { background: var(--bg); color: var(--fg); font: 15px/1.45 var(--f-body); }
+.app { display: grid; grid-template-columns: 380px 1fr; height: 100%; }
+.panel { background: var(--panel); border-right: 1px solid var(--line); overflow-y: auto; padding-block: 16px 40px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: 16px; display: flex; flex-direction: column; gap: 18px; }
+#map { height: 100%; background: #0b0e11; }
+header h1 { font: 700 26px/1.1 var(--f-display); letter-spacing: .02em; margin: 0; text-transform: uppercase; }
+header p { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
+header .src { font-family: var(--f-mono); font-size: 11px; color: var(--accent); letter-spacing: .04em; }
+section { display: flex; flex-direction: column; gap: 10px; }
+section > h2 { font: 600 13px/1 var(--f-display); text-transform: uppercase; letter-spacing: .12em; color: var(--muted); margin: 0; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
+.row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+label.f { display: flex; flex-direction: column; gap: 3px; font-size: 12px; color: var(--muted); min-width: 0; }
+input[type=number], input[type=text], select { width: 100%; background: var(--raise); color: var(--fg); border: 1px solid var(--line); border-radius: 4px; padding: 7px 8px; font: 14px var(--f-mono); }
+select { font-family: var(--f-body); }
+input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+label.chk { display: flex; gap: 8px; align-items: center; font-size: 13px; }
+button { background: var(--raise); color: var(--fg); border: 1px solid var(--line); border-radius: 4px; padding: 7px 10px; font: 600 13px var(--f-body); cursor: pointer; }
+button:hover { border-color: var(--muted); }
+button.primary { background: var(--accent); color: #1a1500; border-color: var(--accent); }
+.btns { display: flex; gap: 8px; flex-wrap: wrap; }
+.hint { font-size: 12px; color: var(--muted); margin: 0; }
+.path { background: var(--raise); border: 1px solid var(--line); border-radius: 6px; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+.path .top { display: flex; justify-content: space-between; align-items: center; }
+.path .tag { font: 700 14px var(--f-display); letter-spacing: .06em; color: var(--c-app); }
+.path .sub { font: 12px var(--f-mono); color: var(--muted); }
+.x { background: none; border: none; color: var(--muted); padding: 2px 6px; }
+table.res { width: 100%; border-collapse: collapse; font-size: 13px; }
+table.res td { padding: 5px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+table.res td.v { text-align: right; font-family: var(--f-mono); font-variant-numeric: tabular-nums; white-space: nowrap; padding-left: 8px; }
+table.res .rule { display: block; color: var(--muted); font-size: 11px; }
+.sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; border: 1px solid rgba(255,255,255,.4); }
+.msgs { display: flex; flex-direction: column; gap: 6px; }
+.msg { font-size: 12.5px; padding: 7px 9px; border-radius: 4px; border-left: 3px solid var(--warn); background: rgba(255,159,67,.08); }
+.msg.info { border-left-color: var(--c-app); background: rgba(63,208,255,.07); }
+.msg.bad { border-left-color: var(--bad); background: rgba(255,93,108,.09); }
+.status { font: 12px var(--f-mono); color: var(--muted); min-height: 1em; }
+.legend { position: absolute; z-index: 500; right: max(10px, env(safe-area-inset-right, 0px)); bottom: 24px; background: rgba(18,22,27,.88); border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; font-size: 12px; display: grid; gap: 3px; pointer-events: none; }
+.mapwrap { position: relative; height: 100%; min-width: 0; }
+.handle { width: 26px; height: 26px; border-radius: 50%; background: var(--c-app); color: #00222e; font: 700 13px/26px var(--f-display); text-align: center; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.6); cursor: grab; }
+.center-pin { width: 18px; height: 18px; border-radius: 50%; background: var(--accent); border: 3px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.6); cursor: move; }
+.leaflet-tooltip { font-family: var(--f-body); }
+#globe { position: absolute; inset: 0; background: #0b0e11; }
+.viewtoggle { position: absolute; z-index: 600; top: 12px; left: 50%; transform: translateX(-50%); display: flex; background: rgba(18,22,27,.92); border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.viewtoggle button { border: none; border-radius: 0; background: transparent; padding: 7px 16px; font: 600 14px var(--f-display); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.viewtoggle button[aria-pressed="true"] { background: var(--accent); color: #1a1500; }
+.globe-status { position: absolute; z-index: 600; left: 12px; bottom: 24px; background: rgba(18,22,27,.88); border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; font: 12px var(--f-mono); color: var(--muted); max-width: 60%; }
+.cesium-viewer-bottom { display: none; }
+.camctl { position: absolute; z-index: 600; left: max(12px, env(safe-area-inset-left, 0px)); top: 60px; width: 132px; background: rgba(18,22,27,.92); border: 1px solid var(--line); border-radius: 8px; padding: 10px; display: flex; flex-direction: column; gap: 10px; user-select: none; -webkit-user-select: none; }
+.camctl .grp { display: flex; flex-direction: column; gap: 5px; }
+.camctl .lbl { font: 600 11px var(--f-display); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.camctl .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+.camctl button { padding: 8px 0; font: 600 16px/1 var(--f-body); touch-action: none; }
+.camctl button.wide { font-size: 12.5px; padding: 7px 6px; text-align: left; }
+.camctl button:active { background: var(--accent); color: #1a1500; }
+@media (max-width: 820px) {
+  .app { grid-template-columns: 1fr; grid-template-rows: 58vh auto; height: auto; }
+  .mapwrap { order: -1; height: 58vh; }
+  .panel { border-right: none; overflow: visible; padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="panel">
+    <header>
+      <div class="src">DRAFT AC 150/5390-4 · 10/22/2026</div>
+      <h1>Vertiport Surface Planner</h1>
+      <p>Place a pad, set the design aircraft and approach courses, and export the FATO, safety area and approach surfaces to Google Earth or GIS.</p>
+    </header>
+
+    <section>
+      <h2>Location</h2>
+      <div class="row" style="grid-template-columns:1fr auto">
+        <input id="q" type="text" placeholder="Search a place or paste lat, lon" aria-label="Search">
+        <button id="go">Find</button>
+      </div>
+      <div class="row">
+        <label class="f">Latitude<input id="lat" type="number" step="0.000001"></label>
+        <label class="f">Longitude<input id="lon" type="number" step="0.000001"></label>
+      </div>
+      <div class="row" style="grid-template-columns:1fr auto; align-items:end">
+        <label class="f">Ground elevation (ft MSL)<input id="elev" type="number" step="1"></label>
+        <button id="elevBtn" title="Look up ground elevation at the pad (USGS, then Open-Meteo)">Look up</button>
+      </div>
+      <div class="status" id="status"></div>
+      <p class="hint">Click the map or drag the yellow pin to move the pad. Drag a numbered blue handle to swing that approach.</p>
+    </section>
+
+    <section>
+      <h2>Design aircraft</h2>
+      <div class="row">
+        <label class="f">Category
+          <select id="cat"><option value="pl">Powered lift</option><option value="heli">Helicopter</option></select>
+        </label>
+        <label class="f">Preset
+          <select id="preset"></select>
+        </label>
+      </div>
+      <div class="row3">
+        <label class="f" title="Controlling dimension: smallest circle around the whole aircraft, rotors turning">D (ft)<input id="D" type="number" step="0.1" min="1"></label>
+        <label class="f" title="Rotor diameter: smallest circle around all lift units and touch points">RD (ft)<input id="RD" type="number" step="0.1" min="1"></label>
+        <label class="f">MTOW (lb)<input id="mtow" type="number" step="10" min="0"></label>
+      </div>
+      <p class="hint" id="acNote"></p>
+    </section>
+
+    <section>
+      <h2>Pad</h2>
+      <div class="row">
+        <label class="f">Shape
+          <select id="shape"><option value="square">Square / rectangle</option><option value="circle">Circle</option></select>
+        </label>
+        <label class="f" title="Leave 0 for minimum. A longer FATO along approach 1 makes an elongated FATO.">FATO length (ft, 0 = min)<input id="fatoLen" type="number" step="1" min="0"></label>
+      </div>
+      <div class="row">
+        <label class="f" title="TLOF height above surrounding ground. 2.5 ft (30 in) or more counts as elevated.">Deck height above ground (ft)<input id="deck" type="number" step="1" min="0"></label>
+        <div style="display:flex;flex-direction:column;gap:6px;justify-content:end">
+          <label class="chk"><input id="fatoLB" type="checkbox" checked> FATO load-bearing</label>
+          <label class="chk"><input id="hsym" type="checkbox" checked> Standard H / VTL marking</label>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Approach / departure paths</h2>
+      <div id="paths" style="display:flex;flex-direction:column;gap:8px"></div>
+      <div class="btns"><button id="addPath">Add path</button></div>
+      <p class="hint">Course is the true heading flown on final. The surface lies on the opposite side of the pad. Reciprocal adds the matching surface on the far side.</p>
+    </section>
+
+    <section>
+      <h2>Dimensions</h2>
+      <table class="res" id="res"></table>
+      <div class="msgs" id="msgs"></div>
+    </section>
+
+    <section>
+      <h2>Export</h2>
+      <label class="f">Site name<input id="name" type="text"></label>
+      <div class="btns">
+        <button class="primary" id="kml">Google Earth (.kml)</button>
+        <button id="geojson">GIS (.geojson)</button>
+      </div>
+      <div class="btns">
+        <button id="save">Save design</button>
+        <button id="loadBtn">Open design</button>
+        <input id="loadFile" type="file" accept=".json,application/json" hidden>
+      </div>
+      <label class="f" title="Optional. A free token from ion.cesium.com turns on Cesium World Terrain and OSM 3D buildings in the 3D view.">Cesium ion token for 3D buildings (optional)<input id="ionToken" type="text" placeholder="paste token, then reopen 3D view" autocomplete="off"></label>
+      <p class="hint">KML puts the pad areas on the ground and the approach and transitional surfaces in the air at true altitude (ground elevation + deck height + surface height). If Google Earth's terrain differs from the elevation above, adjust it and export again.</p>
+    </section>
+  </aside>
+
+  <div class="mapwrap">
+    <div id="map"></div>
+    <div id="globe" hidden></div>
+    <div class="viewtoggle" role="group" aria-label="View">
+      <button id="v2d" aria-pressed="true">2D map</button>
+      <button id="v3d" aria-pressed="false">3D view</button>
+    </div>
+    <div class="globe-status" id="globeStatus" hidden></div>
+    <div class="camctl" id="camctl" hidden>
+      <div class="grp"><span class="lbl">Rotate</span>
+        <div class="pair"><button data-cam="rotL" title="Rotate left around the pad (hold)" aria-label="Rotate left">⟲</button><button data-cam="rotR" title="Rotate right around the pad (hold)" aria-label="Rotate right">⟳</button></div></div>
+      <div class="grp"><span class="lbl">Tilt</span>
+        <div class="pair"><button data-cam="tiltUp" title="Tilt toward the horizon (hold)" aria-label="Tilt toward horizon">▲</button><button data-cam="tiltDn" title="Tilt toward looking straight down (hold)" aria-label="Tilt down">▼</button></div></div>
+      <div class="grp"><span class="lbl">Zoom</span>
+        <div class="pair"><button data-cam="zoomIn" title="Zoom in (hold)" aria-label="Zoom in">+</button><button data-cam="zoomOut" title="Zoom out (hold)" aria-label="Zoom out">−</button></div></div>
+      <div class="grp"><span class="lbl">Views</span>
+        <button class="wide" id="camOverview">Overview</button>
+        <button class="wide" id="camTop">Top down</button>
+        <div id="camPaths" style="display:flex;flex-direction:column;gap:5px"></div></div>
+    </div>
+    <div class="legend" id="legend"></div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+
+<!-- Geometry: pure functions, no DOM. Values from draft AC 150/5390-4 (10/22/2026), Chapter 4 and Appendix A. -->
+<script id="geometry">
+const FT = 0.3048;
+
+// Figure 4-4, Additional FATO Length for Heliports at Higher Elevations.
+// Read from the chart (about +/- 5 ft); the AC's worked example (3,200 ft -> 80 ft) is on the curve.
+const ELEV_ADD = [[1000, 0], [2000, 30], [3000, 70], [3200, 80], [4000, 120], [5000, 177], [6000, 245]];
+function fatoElevationAddition(elevFt) {
+  if (!(elevFt > 1000)) return 0;
+  const t = ELEV_ADD;
+  for (let i = 1; i < t.length; i++) {
+    if (elevFt <= t[i][0]) {
+      const [x0, y0] = t[i - 1], [x1, y1] = t[i];
+      return y0 + (y1 - y0) * (elevFt - x0) / (x1 - x0);
+    }
+  }
+  const [x0, y0] = t[t.length - 2], [x1, y1] = t[t.length - 1];
+  return y1 + (y1 - y0) * (elevFt - x1) / (x1 - x0);
+}
+
+const norm360 = a => ((a % 360) + 360) % 360;
+const angDiff = (a, b) => { const d = Math.abs(norm360(a) - norm360(b)); return d > 180 ? 360 - d : d; };
+const unit = bearingDeg => { const r = bearingDeg * Math.PI / 180; return [Math.sin(r), Math.cos(r)]; }; // [east, north]
+
+// Local tangent plane (feet, x east, y north) to WGS84.
+function makeProjector(lat0, lon0) {
+  const p = lat0 * Math.PI / 180;
+  const mLat = 111132.92 - 559.82 * Math.cos(2 * p) + 1.175 * Math.cos(4 * p);
+  const mLon = 111412.84 * Math.cos(p) - 93.5 * Math.cos(3 * p);
+  return {
+    toLL: (x, y) => [lat0 + (y * FT) / mLat, lon0 + (x * FT) / mLon],
+    toXY: (lat, lon) => [(lon - lon0) * mLon / FT, (lat - lat0) * mLat / FT],
+  };
+}
+
+function rectRing(u, v, halfL, halfW, h = 0) {
+  const c = [[1, 1], [-1, 1], [-1, -1], [1, -1]];
+  const r = c.map(([a, b]) => [u[0] * halfL * a + v[0] * halfW * b, u[1] * halfL * a + v[1] * halfW * b, h]);
+  r.push(r[0]);
+  return r;
+}
+function circleRing(radius, h = 0, n = 72) {
+  const r = [];
+  for (let i = 0; i <= n; i++) { const a = 2 * Math.PI * i / n; r.push([radius * Math.sin(a), radius * Math.cos(a), h]); }
+  return r;
+}
+
+// p: {category, D, RD, mtow, shape, fatoLen, deck, fatoLoadBearing, hSymbol, groundElev, paths:[{course, slope, recip}]}
+function computeDesign(p) {
+  const msgs = [];
+  const D = +p.D, RD = +p.RD;
+  const elevated = p.deck >= 2.5;
+  const heliportElev = (+p.groundElev || 0) + (+p.deck || 0);
+
+  // 4.2.1.4 TLOF
+  let tlof = RD + 10, tlofRule = "1 RD + 10 ft";
+  if (elevated && !p.fatoLoadBearing) { tlof *= 1.2; tlofRule += ", +20% (elevated, FATO not load-bearing)"; }
+
+  // 4.3.1.4 FATO: 1.5 D, and TLOF-to-FATO perimeter gap of at least 0.34 D on all sides
+  const fatoByD = 1.5 * D, fatoByGap = tlof + 2 * 0.34 * D;
+  const W = Math.max(fatoByD, fatoByGap);
+  const fatoRule = fatoByGap > fatoByD ? "TLOF + 0.34 D each side (governs over 1.5 D)" : "1.5 D";
+  const elevAdd = fatoElevationAddition(heliportElev);
+  const baseL = Math.max(W, +p.fatoLen || 0);
+  const L = baseL + elevAdd;
+  if (+p.fatoLen > 0 && +p.fatoLen < W) msgs.push(["warn", `FATO length ${p.fatoLen} ft is below the minimum ${W.toFixed(1)} ft, so the minimum is used.`]);
+  if (elevAdd > 0) msgs.push(["info", `Heliport elevation ${Math.round(heliportElev)} ft MSL adds ${elevAdd.toFixed(0)} ft to FATO length (Figure 4-4).`]);
+  if (heliportElev > 6000) msgs.push(["warn", "Figure 4-4 stops at 6,000 ft; the FATO addition above that is extrapolated."]);
+
+  // 4.4.1.4 Safety area
+  let sa = Math.max(0.28 * D, 20), saRule = "0.28 D, min 20 ft";
+  if (!p.hSymbol) { sa += 10; saRule += ", +10 ft (no standard H)"; }
+
+  const paths = (p.paths || []).filter(x => isFinite(+x.course));
+  if (!paths.length) msgs.push(["bad", "Add at least one approach/departure path."]);
+  const axisBearing = paths.length ? norm360(+paths[0].course + 180) : 0; // primary surface direction
+  const u = unit(axisBearing), v = [u[1], -u[0]];
+  const isRect = p.shape !== "circle" || L > W + 0.05;
+  if (p.shape === "circle" && L > W + 0.05) msgs.push(["info", "FATO is longer than it is wide, so it is drawn as a rectangle (elongated FATO)."]);
+
+  const features = [];
+  const add = (element, name, ring, alt, props) => features.push({ element, name, ring, alt, props: props || {} });
+  const deckAlt = elevated ? "deck" : "ground";
+
+  // Ground / deck areas
+  if (isRect) {
+    add("safety", "Safety area", rectRing(u, v, L / 2 + sa, W / 2 + sa), deckAlt, { length_ft: L + 2 * sa, width_ft: W + 2 * sa });
+    add("fato", "FATO", rectRing(u, v, L / 2, W / 2), deckAlt, { length_ft: L, width_ft: W });
+    if (p.shape === "circle") add("tlof", "TLOF", circleRing(tlof / 2), deckAlt, { diameter_ft: tlof });
+    else add("tlof", "TLOF", rectRing(u, v, tlof / 2, tlof / 2), deckAlt, { side_ft: tlof });
+  } else {
+    add("safety", "Safety area", circleRing(W / 2 + sa), deckAlt, { diameter_ft: W + 2 * sa });
+    add("fato", "FATO", circleRing(W / 2), deckAlt, { diameter_ft: W });
+    add("tlof", "TLOF", circleRing(tlof / 2), deckAlt, { diameter_ft: tlof });
+  }
+
+  // Surfaces: one per direction (a reciprocal path makes two)
+  const surfaces = [];
+  paths.forEach((pa, i) => {
+    const slope = Math.max(1, +pa.slope || 8);
+    const b1 = norm360(+pa.course + 180);
+    surfaces.push({ path: i + 1, bearing: b1, course: norm360(+pa.course), slope, recip: !!pa.recip, label: `${i + 1}` });
+    if (pa.recip) surfaces.push({ path: i + 1, bearing: norm360(b1 + 180), course: norm360(+pa.course + 180), slope, recip: true, label: `${i + 1}R` });
+  });
+
+  const LEN = 4000, END_W = 500, TRANS_OUT = 250, HPZ = 280;
+  surfaces.forEach(s => {
+    const d = unit(s.bearing), n = [d[1], -d[0]];
+    let r0, w0;
+    if (isRect) {
+      const du = Math.abs(d[0] * u[0] + d[1] * u[1]), dv = Math.abs(d[0] * v[0] + d[1] * v[1]);
+      r0 = Math.min(du > 1e-9 ? (L / 2) / du : Infinity, dv > 1e-9 ? (W / 2) / dv : Infinity);
+      w0 = L * Math.abs(n[0] * u[0] + n[1] * u[1]) + W * Math.abs(n[0] * v[0] + n[1] * v[1]); // FATO width seen across the path
+    } else { r0 = W / 2; w0 = W; }
+    s.r0 = r0; s.w0 = w0;
+    const H = LEN / s.slope;
+    s.endHeight = H;
+    const endW = Math.max(END_W, w0);
+    const P = (along, across, h) => [d[0] * along + n[0] * across, d[1] * along + n[1] * across, h];
+    const appRing = [P(r0, -w0 / 2, 0), P(r0, w0 / 2, 0), P(r0 + LEN, endW / 2, H), P(r0 + LEN, -endW / 2, H), P(r0, -w0 / 2, 0)];
+    const pname = `Path ${s.label} (course ${String(Math.round(s.course)).padStart(3, "0")}°T)`;
+    add("approach", `Approach/departure surface, ${pname}`, appRing, "surface",
+      { path: s.label, course_true: +s.course.toFixed(1), surface_bearing_true: +s.bearing.toFixed(1), slope: `${s.slope}:1`, length_ft: LEN, inner_width_ft: +w0.toFixed(1), outer_width_ft: endW, outer_height_ft: +H.toFixed(1) });
+
+    const hpzW = w0 + (endW - w0) * HPZ / LEN;
+    add("hpz", `Heliport protection zone, ${pname}`, [P(r0, -w0 / 2, 0), P(r0, w0 / 2, 0), P(r0 + HPZ, hpzW / 2, 0), P(r0 + HPZ, -hpzW / 2, 0), P(r0, -w0 / 2, 0)], "ground",
+      { path: s.label, length_ft: HPZ, outer_width_ft: +hpzW.toFixed(1) });
+
+    if (w0 / 2 < TRANS_OUT) {
+      [-1, 1].forEach(side => {
+        const hOut = (TRANS_OUT - w0 / 2) / 2;
+        const ring = [P(r0, side * w0 / 2, 0), P(r0 + LEN, side * endW / 2, H), P(r0, side * TRANS_OUT, hOut), P(r0, side * w0 / 2, 0)];
+        add("transitional", `Transitional surface, ${pname}, ${side < 0 ? "left" : "right"}`, ring, "surface", { path: s.label, slope: "2:1", extends_to_ft_from_centerline: TRANS_OUT });
+      });
+    }
+  });
+
+  // Transitional strips along the FATO sides, parallel to the primary path
+  if (paths.length && W / 2 < TRANS_OUT) {
+    const hOut = (TRANS_OUT - W / 2) / 2;
+    [-1, 1].forEach(side => {
+      const Q = (along, across, h) => [u[0] * along + v[0] * across, u[1] * along + v[1] * across, h];
+      add("transitional", `Transitional surface along FATO, ${side < 0 ? "left" : "right"} side`,
+        [Q(-L / 2, side * W / 2, 0), Q(L / 2, side * W / 2, 0), Q(L / 2, side * TRANS_OUT, hOut), Q(-L / 2, side * TRANS_OUT, hOut), Q(-L / 2, side * W / 2, 0)],
+        "surface", { slope: "2:1" });
+    });
+  }
+
+  // 4.6.1 DCA, defined only for aircraft 7,000 lb and lighter
+  const dcaOk = +p.mtow > 0 && +p.mtow <= 7000;
+  if (dcaOk) {
+    const seen = new Set();
+    paths.forEach((pa, i) => {
+      const b = norm360(+pa.course + 180), key = Math.round(norm360(b) % 180);
+      if (seen.has(key)) return; seen.add(key);
+      const du = unit(b), dv = [du[1], -du[0]];
+      add("dca", `Downwash/outwash caution area, path ${i + 1}`, rectRing(du, dv, 390, 210), "ground", { length_ft: 780, width_ft: 420 });
+    });
+    msgs.push(["info", "Taxi DCA (210 ft radius around the aircraft along taxi routes) is not drawn; taxi routes are not modeled."]);
+  } else {
+    msgs.push(["warn", +p.mtow > 7000
+      ? `MTOW ${p.mtow} lb is over 7,000 lb. The draft AC gives DCA dimensions only for aircraft 7,000 lb and lighter, so no DCA is drawn.`
+      : "Enter MTOW to draw the downwash/outwash caution area (defined for 7,000 lb and lighter)."]);
+  }
+
+  // Path checks
+  paths.forEach((pa, i) => {
+    if (p.category === "pl" && +pa.slope < 15) msgs.push(["bad", `Path ${i + 1}: powered-lift critical aircraft need an approach surface of 15:1 or shallower (4.7.1.1).`]);
+    if (+pa.slope > 8) msgs.push(["info", `Path ${i + 1}: FAA evaluates obstructions only against 8:1 under Part 77. A ${pa.slope}:1 surface is not protected or used in charting; note it in ADIP.`]);
+  });
+  if (paths.length === 1 && !paths[0].recip) msgs.push(["info", "One surface only. Where a reciprocal surface is not possible, the AC calls for a second surface at least 135° away."]);
+  surfaces.forEach(s => {
+    if (s.recip) return;
+    let near = 360;
+    surfaces.forEach(o => { if (o !== s) near = Math.min(near, angDiff(s.bearing, o.bearing)); });
+    if (near < 135 && surfaces.length > 1) msgs.push(["warn", `Path ${s.label} surface is ${near.toFixed(0)}° from the nearest other surface; the AC calls for at least 135° when no reciprocal is used.`]);
+  });
+  const axisAligned = s => [0, 90, 180, 270].some(k => angDiff(s.bearing, axisBearing + k) < 0.5);
+  if (isRect && surfaces.some(s => !axisAligned(s))) msgs.push(["info", "A path is not square to the FATO. Its surface starts where it leaves the FATO and its inner width is the FATO's width seen across that path."]);
+  if (D > 0 && RD > D) msgs.push(["warn", "RD is larger than D. D should enclose the whole aircraft, so it is normally at least RD."]);
+
+  return {
+    tlof, tlofRule, W, L, fatoRule, elevAdd, sa, saRule, heliportElev, elevated, surfaces, features, msgs, dcaOk,
+    overall: isRect ? { length: L + 2 * sa, width: W + 2 * sa } : { length: W + 2 * sa, width: W + 2 * sa },
+  };
+}
+
+// Absolute altitude (ft MSL) of a ring vertex
+function vertexAltFt(design, alt, h) {
+  if (alt === "ground") return null;
+  if (alt === "deck") return design.heliportElev;
+  return design.heliportElev + h;
+}
+
+const KML_STYLE = { // aabbggrr
+  tlof: ["ffffffff", "66ffffff"], fato: ["ff30c2f2", "2630c2f2"], safety: ["ff3d8aff", "00000000"],
+  hpz: ["ff5e4dff", "405e4dff"], dca: ["ffff7bd2", "14ff7bd2"], approach: ["ffffd03f", "38ffd03f"], transitional: ["ffb0e04f", "26b0e04f"],
+};
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+function buildKML(design, site) {
+  const prj = makeProjector(site.lat, site.lon);
+  const ff = n => (Math.round(n * 10) / 10).toLocaleString("en-US");
+  const styles = Object.entries(KML_STYLE).map(([k, [l, f]]) =>
+    `<Style id="${k}"><LineStyle><color>${l}</color><width>${k === "approach" || k === "tlof" ? 2.5 : 2}</width></LineStyle><PolyStyle><color>${f}</color>${f === "00000000" ? "<fill>0</fill>" : ""}</PolyStyle></Style>`).join("");
+  const pm = f => {
+    const ground = f.alt === "ground";
+    const coords = f.ring.map(([x, y, h]) => {
+      const [la, lo] = prj.toLL(x, y);
+      const a = vertexAltFt(design, f.alt, h);
+      return `${lo.toFixed(8)},${la.toFixed(8)},${ground ? 0 : (a * FT).toFixed(2)}`;
+    }).join(" ");
+    const rows = Object.entries(f.props).map(([k, v]) => `<tr><td>${esc(k)}</td><td>${esc(v)}</td></tr>`).join("");
+    return `<Placemark><name>${esc(f.name)}</name><description><![CDATA[<table>${rows}</table>]]></description><styleUrl>#${f.element}</styleUrl><Polygon>${ground ? "<tessellate>1</tessellate><altitudeMode>clampToGround</altitudeMode>" : "<altitudeMode>absolute</altitudeMode>"}<outerBoundaryIs><LinearRing><coordinates>${coords}</coordinates></LinearRing></outerBoundaryIs></Polygon></Placemark>`;
+  };
+  const group = (title, els) => {
+    const fs = design.features.filter(f => els.includes(f.element));
+    return fs.length ? `<Folder><name>${esc(title)}</name>${fs.map(pm).join("")}</Folder>` : "";
+  };
+  const summary = `<table>
+<tr><td>Design aircraft</td><td>${esc(site.aircraft)}</td></tr>
+<tr><td>D / RD / MTOW</td><td>${ff(site.D)} ft / ${ff(site.RD)} ft / ${esc(site.mtow || "n/a")} lb</td></tr>
+<tr><td>TLOF</td><td>${ff(design.tlof)} ft (${esc(design.tlofRule)})</td></tr>
+<tr><td>FATO</td><td>${ff(design.L)} x ${ff(design.W)} ft (${esc(design.fatoRule)})</td></tr>
+<tr><td>Safety area</td><td>${ff(design.sa)} ft each side</td></tr>
+<tr><td>Heliport elevation</td><td>${ff(design.heliportElev)} ft MSL</td></tr>
+${design.surfaces.map(s => `<tr><td>Path ${s.label}</td><td>course ${Math.round(s.course)}°T, ${s.slope}:1, ${ff(s.endHeight)} ft above heliport at 4,000 ft</td></tr>`).join("")}
+</table><p>Generated from draft AC 150/5390-4 (10/22/2026). Planning sketch, not a design approval.</p>`;
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>${esc(site.name)}</name>
+<LookAt><longitude>${site.lon}</longitude><latitude>${site.lat}</latitude><altitude>0</altitude><heading>${design.surfaces[0] ? design.surfaces[0].course.toFixed(0) : 0}</heading><tilt>60</tilt><range>2200</range><altitudeMode>relativeToGround</altitudeMode></LookAt>
+${styles}
+<Placemark><name>${esc(site.name)}</name><description><![CDATA[${summary}]]></description><Point><coordinates>${site.lon},${site.lat},0</coordinates></Point></Placemark>
+${group("Pad areas", ["tlof", "fato", "safety"])}
+${group("Heliport protection zones", ["hpz"])}
+${group("Downwash/outwash caution area", ["dca"])}
+${group("Approach/departure surfaces", ["approach"])}
+${group("Transitional surfaces", ["transitional"])}
+</Document></kml>`;
+}
+
+function buildGeoJSON(design, site) {
+  const prj = makeProjector(site.lat, site.lon);
+  return JSON.stringify({
+    type: "FeatureCollection",
+    name: site.name,
+    crs: { type: "name", properties: { name: "urn:ogc:def:crs:OGC:1.3:CRS84" } },
+    features: design.features.map(f => ({
+      type: "Feature",
+      properties: { name: f.name, element: f.element, altitude_ref: f.alt === "ground" ? "ground" : "absolute_m_msl", ...f.props, source: "draft AC 150/5390-4 (10/22/2026)" },
+      geometry: { type: "Polygon", coordinates: [f.ring.map(([x, y, h]) => {
+        const [la, lo] = prj.toLL(x, y); const a = vertexAltFt(design, f.alt, h);
+        return [+lo.toFixed(8), +la.toFixed(8), a == null ? 0 : +(a * FT).toFixed(2)];
+      })] },
+    })),
+  }, null, 1);
+}
+
+if (typeof module !== "undefined") module.exports = { computeDesign, buildKML, buildGeoJSON, fatoElevationAddition, makeProjector };
+</script>
+
+<script>
+// Helicopter presets from draft AC Appendix E, Table E-1 (MTOW lb, D ft, RD ft).
+const HELI = [
+  ["Robinson R-44 Raven", 2500, 38.3, 33], ["Robinson R-66 Turbine", 2700, 38.3, 33],
+  ["Bell 206B", 3350, 39.2, 33.4], ["Bell 206L", 4450, 42.4, 37], ["Bell 407", 5250, 41.4, 35], ["Bell 429", 7000, 43, 36], ["Bell 412EP", 11900, 56.2, 46],
+  ["Airbus AS-350 A-Star", 4960, 42.5, 35.1], ["Airbus EC-130", 5291, 41.5, 35.1], ["Airbus EC-135", 6250, 40, 33.5], ["Airbus BK-117", 7385, 42.7, 36.1], ["Airbus EC-155", 10692, 46.9, 41.3],
+  ["Leonardo AW-109S Grand", 7000, 42.5, 35.5], ["Leonardo AW-119 Ke", 6283, 42.4, 35.5], ["Leonardo AW-139", 14991, 54.7, 42.6],
+  ["MD Explorer 902", 6500, 38.8, 33.8], ["Sikorsky S-76", 11700, 52.5, 44], ["Sikorsky S-92", 26500, 68.5, 56.3],
+];
+const $ = id => document.getElementById(id);
+const COLORS = { tlof: "#ffffff", fato: "#f2c230", safety: "#ff8a3d", hpz: "#ff4d5e", dca: "#d27bff", approach: "#3fd0ff", transitional: "#4fe0b0" };
+const LEG = [["tlof", "TLOF"], ["fato", "FATO"], ["safety", "Safety area"], ["hpz", "Protection zone"], ["dca", "Downwash caution area"], ["approach", "Approach/departure"], ["transitional", "Transitional 2:1"]];
+
+const DEFAULT = {
+  name: "Example vertiport", lat: 35.779600, lon: -78.638200, groundElev: 315,
+  category: "pl", preset: "custom", D: 50, RD: 45, mtow: 7000,
+  shape: "square", fatoLen: 0, deck: 0, fatoLoadBearing: true, hSymbol: true,
+  paths: [{ course: 230, slope: 15, recip: true }],
+};
+let S = JSON.parse(JSON.stringify(DEFAULT));
+try { const saved = JSON.parse(localStorage.getItem("vsp-state") || "null"); if (saved && saved.paths) S = { ...S, ...saved }; } catch (e) {}
+
+// Map
+const map = L.map("map", { zoomControl: true }).setView([S.lat, S.lon], 16);
+const sat = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", { maxZoom: 20, maxNativeZoom: 19, attribution: "Imagery &copy; Esri, Maxar, Earthstar Geographics" }).addTo(map);
+const labels = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}", { maxZoom: 20, maxNativeZoom: 19 }).addTo(map);
+const osm = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 20, maxNativeZoom: 19, attribution: "&copy; OpenStreetMap contributors" });
+L.control.layers({ "Satellite": sat, "Streets": osm }, { "Place labels": labels }, { position: "topright" }).addTo(map);
+L.control.scale({ imperial: true, metric: true }).addTo(map);
+const layer = L.layerGroup().addTo(map);
+const centerMarker = L.marker([S.lat, S.lon], { draggable: true, icon: L.divIcon({ className: "", html: '<div class="center-pin"></div>', iconSize: [18, 18], iconAnchor: [9, 9] }), zIndexOffset: 1000 }).addTo(map);
+let handles = [];
+
+$("legend").innerHTML = LEG.map(([k, t]) => `<div><span class="sw" style="background:${COLORS[k]}"></span>${t}</div>`).join("");
+
+// Presets
+function fillPresets() {
+  const opts = ['<option value="custom">Custom (enter D, RD, MTOW)</option>'];
+  if (S.category === "heli") HELI.forEach((h, i) => opts.push(`<option value="${i}">${h[0]}</option>`));
+  $("preset").innerHTML = opts.join("");
+  $("preset").value = S.category === "heli" && HELI[S.preset] ? S.preset : "custom";
+  $("acNote").textContent = S.category === "pl"
+    ? "The draft AC has no powered-lift data table. Use D and RD from the manufacturer. The starting values here are examples, not a real aircraft."
+    : "Presets come from Appendix E, Table E-1. Confirm with the manufacturer.";
+}
+
+function readForm() {
+  S.lat = +$("lat").value; S.lon = +$("lon").value; S.groundElev = +$("elev").value;
+  S.category = $("cat").value; S.D = +$("D").value; S.RD = +$("RD").value; S.mtow = +$("mtow").value;
+  S.shape = $("shape").value; S.fatoLen = +$("fatoLen").value; S.deck = +$("deck").value;
+  S.fatoLoadBearing = $("fatoLB").checked; S.hSymbol = $("hsym").checked; S.name = $("name").value || "Vertiport";
+}
+function writeForm() {
+  $("lat").value = S.lat.toFixed(6); $("lon").value = S.lon.toFixed(6); $("elev").value = S.groundElev;
+  $("cat").value = S.category; fillPresets(); $("D").value = S.D; $("RD").value = S.RD; $("mtow").value = S.mtow;
+  $("shape").value = S.shape; $("fatoLen").value = S.fatoLen; $("deck").value = S.deck;
+  $("fatoLB").checked = S.fatoLoadBearing; $("hsym").checked = S.hSymbol; $("name").value = S.name;
+  renderPaths();
+}
+
+function renderPaths() {
+  $("paths").innerHTML = S.paths.map((p, i) => `
+    <div class="path">
+      <div class="top"><span class="tag">PATH ${i + 1}</span>
+        <span class="sub">surface toward ${String(Math.round(((+p.course + 180) % 360 + 360) % 360)).padStart(3, "0")}°</span>
+        ${S.paths.length > 1 ? `<button class="x" data-del="${i}" aria-label="Remove path ${i + 1}">✕</button>` : ""}</div>
+      <div class="row3">
+        <label class="f">Course (°T)<input type="number" id="pc${i}" data-i="${i}" data-k="course" step="1" min="0" max="359" value="${Math.round(p.course)}"></label>
+        <label class="f">Slope (H:1)
+          <select id="ps${i}" data-i="${i}" data-k="slope">${[8, 15, 20].map(s => `<option value="${s}" ${+p.slope === s ? "selected" : ""}>${s}:1</option>`).join("")}${[8, 15, 20].includes(+p.slope) ? "" : `<option value="${p.slope}" selected>${p.slope}:1</option>`}</select></label>
+        <label class="chk" style="align-self:end;padding-bottom:8px"><input type="checkbox" id="pr${i}" data-i="${i}" data-k="recip" ${p.recip ? "checked" : ""}> Reciprocal</label>
+      </div>
+    </div>`).join("");
+}
+
+$("paths").addEventListener("input", e => {
+  const t = e.target, i = +t.dataset.i, k = t.dataset.k; if (!k) return;
+  S.paths[i][k] = k === "recip" ? t.checked : +t.value;
+  update(k === "course" ? false : true);
+});
+$("paths").addEventListener("change", e => { if (e.target.dataset.k === "course") renderPaths(); });
+$("paths").addEventListener("click", e => { const d = e.target.dataset.del; if (d !== undefined) { S.paths.splice(+d, 1); renderPaths(); update(); } });
+$("addPath").onclick = () => {
+  if (S.paths.length >= 4) return;
+  const c = S.paths.length ? (+S.paths[0].course + 135) % 360 : 0;
+  S.paths.push({ course: c, slope: S.category === "pl" ? 15 : 8, recip: false }); renderPaths(); update();
+};
+
+$("cat").onchange = () => { S.category = $("cat").value; S.preset = "custom"; fillPresets(); if (S.category === "pl") S.paths.forEach(p => { if (+p.slope < 15) p.slope = 15; }); renderPaths(); update(); };
+$("preset").onchange = () => {
+  const v = $("preset").value; S.preset = v;
+  if (v !== "custom") { const h = HELI[+v]; $("mtow").value = h[1]; $("D").value = h[2]; $("RD").value = h[3]; $("name").value = $("name").value || h[0]; }
+  update();
+};
+["D", "RD", "mtow"].forEach(id => $(id).addEventListener("input", () => { if (S.category === "heli" && $("preset").value !== "custom") { $("preset").value = "custom"; S.preset = "custom"; } }));
+["lat", "lon", "elev", "D", "RD", "mtow", "shape", "fatoLen", "deck", "fatoLB", "hsym", "name"].forEach(id => $(id).addEventListener("input", () => update(id === "lat" || id === "lon")));
+["shape"].forEach(id => $(id).addEventListener("change", () => update()));
+
+let design = null;
+function update(recenter) {
+  readForm();
+  if (!isFinite(S.lat) || !isFinite(S.lon)) return;
+  design = computeDesign(S);
+  draw();
+  results();
+  if (mode3d) render3d(recenter);
+  centerMarker.setLatLng([S.lat, S.lon]);
+  if (recenter) map.panTo([S.lat, S.lon]);
+  try { localStorage.setItem("vsp-state", JSON.stringify(S)); } catch (e) {}
+}
+
+function draw() {
+  layer.clearLayers();
+  handles.forEach(h => map.removeLayer(h)); handles = [];
+  const prj = makeProjector(S.lat, S.lon);
+  const order = ["dca", "transitional", "approach", "hpz", "safety", "fato", "tlof"];
+  const style = {
+    tlof: { color: COLORS.tlof, weight: 2, fillOpacity: .35 }, fato: { color: COLORS.fato, weight: 2, fillOpacity: .12 },
+    safety: { color: COLORS.safety, weight: 2, dashArray: "6 4", fill: false }, hpz: { color: COLORS.hpz, weight: 1.5, fillOpacity: .28 },
+    dca: { color: COLORS.dca, weight: 1.5, dashArray: "4 6", fillOpacity: .05 }, approach: { color: COLORS.approach, weight: 2, fillOpacity: .16 },
+    transitional: { color: COLORS.transitional, weight: 1, fillOpacity: .1 },
+  };
+  order.forEach(el => design.features.filter(f => f.element === el).forEach(f => {
+    const ll = f.ring.map(([x, y]) => prj.toLL(x, y));
+    const tip = `<b>${f.name}</b><br>` + Object.entries(f.props).map(([k, v]) => `${k.replace(/_/g, " ")}: ${v}`).join("<br>");
+    L.polygon(ll, style[el]).bindTooltip(tip, { sticky: true }).addTo(layer);
+  }));
+  // Drag handles at the outer end of each path's primary surface
+  design.surfaces.filter(s => !/R$/.test(s.label)).forEach(s => {
+    const pIdx = s.path - 1;
+    const r = s.r0 + 4000, d = [Math.sin(s.bearing * Math.PI / 180), Math.cos(s.bearing * Math.PI / 180)];
+    const m = L.marker(prj.toLL(d[0] * r, d[1] * r), { draggable: true, icon: L.divIcon({ className: "", html: `<div class="handle">${s.path}</div>`, iconSize: [26, 26], iconAnchor: [13, 13] }) }).addTo(map);
+    m.bindTooltip(`Path ${s.path}: drag to swing the approach`, { direction: "top" });
+    m.on("drag", ev => {
+      const [x, y] = prj.toXY(ev.latlng.lat, ev.latlng.lng);
+      const bearing = (Math.atan2(x, y) * 180 / Math.PI + 360) % 360;
+      S.paths[pIdx].course = Math.round((bearing + 180) % 360);
+      const inp = $("pc" + pIdx); if (inp) inp.value = S.paths[pIdx].course;
+      design = computeDesign(S); redrawShapesOnly(); results();
+    });
+    m.on("dragend", () => { renderPaths(); update(); });
+    handles.push(m);
+  });
+}
+function redrawShapesOnly() {
+  layer.clearLayers();
+  const prj = makeProjector(S.lat, S.lon);
+  ["dca", "transitional", "approach", "hpz", "safety", "fato", "tlof"].forEach(el => design.features.filter(f => f.element === el).forEach(f => {
+    L.polygon(f.ring.map(([x, y]) => prj.toLL(x, y)), { color: COLORS[el], weight: 1.5, fillOpacity: el === "safety" ? 0 : .12 }).addTo(layer);
+  }));
+}
+
+const f1 = n => (Math.round(n * 10) / 10).toLocaleString("en-US", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+const m1 = n => (Math.round(n * FT * 10) / 10).toFixed(1);
+function results() {
+  const d = design;
+  const rows = [
+    ["tlof", "TLOF", `${f1(d.tlof)} ft`, d.tlofRule],
+    ["fato", "FATO", d.L > d.W + .05 ? `${f1(d.L)} × ${f1(d.W)} ft` : `${f1(d.W)} ft`, d.fatoRule + (d.elevAdd ? `; +${d.elevAdd.toFixed(0)} ft length for elevation` : "")],
+    ["safety", "Safety area", `${f1(d.sa)} ft`, d.saRule + ", each side"],
+    [null, "Overall footprint", `${f1(d.overall.length)} × ${f1(d.overall.width)} ft`, `${m1(d.overall.length)} × ${m1(d.overall.width)} m`],
+    ["hpz", "Protection zone", "280 ft", "under each approach, from FATO edge"],
+    ["dca", "Downwash caution area", d.dcaOk ? "780 × 420 ft" : "not defined", d.dcaOk ? "per path, centered on FATO (≤ 7,000 lb)" : "AC gives sizes only for ≤ 7,000 lb"],
+    [null, "Heliport elevation", `${Math.round(d.heliportElev).toLocaleString("en-US")} ft MSL`, d.elevated ? "elevated (deck ≥ 30 in)" : "ground level"],
+    ...d.surfaces.map(s => ["approach", `Path ${s.label} surface`, `${s.slope}:1 → ${f1(s.endHeight)} ft`, `course ${String(Math.round(s.course)).padStart(3, "0")}°T; ${f1(s.w0)} ft wide at FATO, 500 ft at 4,000 ft`]),
+  ];
+  $("res").innerHTML = rows.map(([k, t, v, r]) => `<tr><td>${k ? `<span class="sw" style="background:${COLORS[k]}"></span>` : ""}${t}<span class="rule">${r}</span></td><td class="v">${v}</td></tr>`).join("");
+  $("msgs").innerHTML = d.msgs.map(([lvl, t]) => `<div class="msg ${lvl === "info" ? "info" : lvl === "bad" ? "bad" : ""}">${t}</div>`).join("");
+}
+
+// Map interactions
+map.on("click", e => { S.lat = e.latlng.lat; S.lon = e.latlng.lng; $("lat").value = S.lat.toFixed(6); $("lon").value = S.lon.toFixed(6); update(); lookupElev(); });
+centerMarker.on("dragend", e => { const p = e.target.getLatLng(); $("lat").value = p.lat.toFixed(6); $("lon").value = p.lng.toFixed(6); update(); lookupElev(); });
+
+// Elevation lookup: USGS EPQS (US), fallback Open-Meteo (global, ~90 m DEM)
+const status = t => { $("status").textContent = t; };
+async function lookupElev() {
+  const lat = +$("lat").value, lon = +$("lon").value;
+  status("Looking up ground elevation…");
+  try {
+    const r = await fetch(`https://epqs.nationalmap.gov/v1/json?x=${lon}&y=${lat}&wkid=4326&units=Feet&includeDate=false`);
+    const j = await r.json(); const v = parseFloat(j.value);
+    if (isFinite(v) && v > -1000) { $("elev").value = Math.round(v); status(`Ground ${Math.round(v)} ft MSL (USGS 3DEP)`); update(); return; }
+  } catch (e) {}
+  try {
+    const r = await fetch(`https://api.open-meteo.com/v1/elevation?latitude=${lat}&longitude=${lon}`);
+    const j = await r.json(); const v = j.elevation[0] / FT;
+    $("elev").value = Math.round(v); status(`Ground ${Math.round(v)} ft MSL (Open-Meteo, coarser)`); update(); return;
+  } catch (e) {}
+  status("Elevation lookup failed. Enter ground elevation by hand.");
+}
+$("elevBtn").onclick = lookupElev;
+
+// Search: "lat, lon" or place name (Photon geocoder)
+async function search() {
+  const q = $("q").value.trim(); if (!q) return;
+  const m = q.match(/^\s*(-?\d+(?:\.\d+)?)\s*[, ]\s*(-?\d+(?:\.\d+)?)\s*$/);
+  if (m) { $("lat").value = (+m[1]).toFixed(6); $("lon").value = (+m[2]).toFixed(6); update(true); map.setZoom(17); lookupElev(); return; }
+  status("Searching…");
+  try {
+    const r = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&limit=1`);
+    const j = await r.json(); const f = j.features && j.features[0];
+    if (!f) { status("No match. Try a fuller address or paste lat, lon."); return; }
+    const [lo, la] = f.geometry.coordinates;
+    $("lat").value = la.toFixed(6); $("lon").value = lo.toFixed(6); update(true); map.setZoom(17);
+    status(`Found: ${[f.properties.name, f.properties.city, f.properties.state].filter(Boolean).join(", ")}`);
+    lookupElev();
+  } catch (e) { status("Search failed. Paste lat, lon instead."); }
+}
+$("go").onclick = search; $("q").addEventListener("keydown", e => { if (e.key === "Enter") search(); });
+
+// Export
+function download(name, text, type) {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([text], { type }));
+  a.download = name; document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+}
+const slug = () => (S.name || "vertiport").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "vertiport";
+const siteInfo = () => ({ name: S.name, lat: S.lat, lon: S.lon, D: S.D, RD: S.RD, mtow: S.mtow,
+  aircraft: S.category === "heli" && $("preset").value !== "custom" ? HELI[+$("preset").value][0] : (S.category === "pl" ? "Powered lift (custom)" : "Helicopter (custom)") });
+$("kml").onclick = () => { update(); download(`${slug()}.kml`, buildKML(design, siteInfo()), "application/vnd.google-earth.kml+xml"); };
+$("geojson").onclick = () => { update(); download(`${slug()}.geojson`, buildGeoJSON(design, siteInfo()), "application/geo+json"); };
+$("save").onclick = () => { update(); download(`${slug()}.vertiport.json`, JSON.stringify(S, null, 2), "application/json"); };
+$("loadBtn").onclick = () => $("loadFile").click();
+$("loadFile").onchange = async e => {
+  const f = e.target.files[0]; if (!f) return;
+  try { const j = JSON.parse(await f.text()); if (!j.paths) throw 0; S = { ...DEFAULT, ...j }; writeForm(); update(true); status(`Opened ${f.name}`); }
+  catch (err) { status("That file is not a saved design."); }
+  e.target.value = "";
+};
+
+// ---------- 3D view (CesiumJS, loaded on first use) ----------
+const CESIUM_VER = "1.119.0";
+const CESIUM_BASE = `https://cdn.jsdelivr.net/npm/cesium@${CESIUM_VER}/Build/Cesium/`;
+let terrainNote = "";
+let mode3d = false, viewer = null, cesiumLoading = null, baseH = 0, baseKey = "", hasTerrain = false;
+const gstat = t => { const el = $("globeStatus"); el.hidden = !t; el.textContent = t || ""; };
+try { $("ionToken").value = localStorage.getItem("vsp-ion") || ""; } catch (e) {}
+$("ionToken").addEventListener("change", () => {
+  try { localStorage.setItem("vsp-ion", $("ionToken").value.trim()); } catch (e) {}
+  if (viewer) { viewer.destroy(); viewer = null; $("globe").innerHTML = ""; if (mode3d) open3d(); }
+});
+
+function loadCesium() {
+  if (window.Cesium) return Promise.resolve();
+  if (cesiumLoading) return cesiumLoading;
+  window.CESIUM_BASE_URL = CESIUM_BASE;
+  cesiumLoading = new Promise((res, rej) => {
+    const css = document.createElement("link"); css.rel = "stylesheet"; css.href = CESIUM_BASE + "Widgets/widgets.css"; document.head.appendChild(css);
+    const s = document.createElement("script"); s.src = CESIUM_BASE + "Cesium.js"; s.onload = res; s.onerror = () => rej(new Error("Cesium did not load")); document.head.appendChild(s);
+  });
+  return cesiumLoading;
+}
+
+async function makeViewer() {
+  const C = window.Cesium;
+  const token = $("ionToken").value.trim();
+  C.Ion.defaultAccessToken = token || "";
+  const imagery = new C.UrlTemplateImageryProvider({ url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", maximumLevel: 19, credit: "Imagery © Esri, Maxar, Earthstar Geographics" });
+  viewer = new C.Viewer("globe", {
+    baseLayer: new C.ImageryLayer(imagery), baseLayerPicker: false, geocoder: false, homeButton: false, sceneModePicker: false,
+    navigationHelpButton: false, animation: false, timeline: false, fullscreenButton: false, selectionIndicator: false, infoBox: true,
+  });
+  viewer.scene.globe.depthTestAgainstTerrain = false;
+  viewer.scene.skyAtmosphere.show = true;
+  hasTerrain = false;
+  try {
+    if (token) {
+      viewer.terrainProvider = await C.createWorldTerrainAsync();
+      const b = await C.createOsmBuildingsAsync(); viewer.scene.primitives.add(b);
+      terrainNote = "Cesium World Terrain + OSM buildings"; hasTerrain = true;
+    } else {
+      viewer.terrainProvider = await C.ArcGISTiledElevationTerrainProvider.fromUrl("https://elevation3d.arcgis.com/arcgis/rest/services/WorldElevation3D/Terrain3D/ImageServer");
+      terrainNote = "Esri world terrain. Add a Cesium ion token for 3D buildings."; hasTerrain = true;
+    }
+  } catch (e) {
+    viewer.terrainProvider = new C.EllipsoidTerrainProvider();
+    terrainNote = "Terrain unavailable; showing a flat globe. Heights are above the pad.";
+  }
+  baseKey = "";
+}
+
+async function open3d() {
+  gstat("Loading 3D engine…");
+  try { await loadCesium(); } catch (e) { gstat("Could not load the 3D engine. Check the internet connection."); return; }
+  if (!viewer) await makeViewer();
+  await render3d(true);
+  if (mode3d) gstat(terrainNote);
+}
+
+async function sampleBase() {
+  const C = window.Cesium, key = `${S.lat.toFixed(6)},${S.lon.toFixed(6)},${hasTerrain}`;
+  if (key === baseKey) return;
+  baseH = 0;
+  if (hasTerrain) {
+    try {
+      const [c] = await C.sampleTerrainMostDetailed(viewer.terrainProvider, [C.Cartographic.fromDegrees(S.lon, S.lat)]);
+      if (isFinite(c.height)) baseH = c.height;
+    } catch (e) {}
+  }
+  baseKey = key;
+}
+
+let render3dSeq = 0;
+async function render3d(fly) {
+  if (!viewer || !design) return;
+  const seq = ++render3dSeq;
+  const C = window.Cesium;
+  await sampleBase();
+  if (seq !== render3dSeq) return;
+  const prj = makeProjector(S.lat, S.lon);
+  const deckFt = design.elevated ? +S.deck : 0;
+  viewer.entities.removeAll();
+  const order = ["dca", "hpz", "safety", "fato", "tlof", "transitional", "approach"];
+  const alpha = { tlof: .55, fato: .3, safety: 0, hpz: .35, dca: .12, approach: .3, transitional: .22 };
+  order.forEach(el => design.features.filter(f => f.element === el).forEach(f => {
+    const col = C.Color.fromCssColorString(COLORS[el]);
+    const lonlat = f.ring.map(([x, y, h]) => { const [la, lo] = prj.toLL(x, y); return [lo, la, h]; });
+    const desc = `<table class="cesium-infoBox-defaultTable">${Object.entries(f.props).map(([k, v]) => `<tr><th>${k.replace(/_/g, " ")}</th><td>${v}</td></tr>`).join("")}</table>`;
+    if (f.alt === "ground" || (f.alt === "deck" && !design.elevated)) {
+      const pos = C.Cartesian3.fromDegreesArray(lonlat.flatMap(p => [p[0], p[1]]));
+      if (alpha[el] > 0) viewer.entities.add({ name: f.name, description: desc, polygon: { hierarchy: pos, material: col.withAlpha(alpha[el]), classificationType: C.ClassificationType.BOTH } });
+      viewer.entities.add({ name: f.name, description: desc, polyline: { positions: pos, width: el === "safety" ? 3 : 2, clampToGround: true, material: el === "safety" || el === "dca" ? new C.PolylineDashMaterialProperty({ color: col }) : col } });
+    } else {
+      const pos = C.Cartesian3.fromDegreesArrayHeights(lonlat.flatMap(p => [p[0], p[1], baseH + (deckFt + (f.alt === "surface" ? p[2] : 0)) * FT]));
+      if (alpha[el] > 0) viewer.entities.add({ name: f.name, description: desc, polygon: { hierarchy: pos, perPositionHeight: true, material: col.withAlpha(alpha[el]) } });
+      viewer.entities.add({ name: f.name, description: desc, polyline: { positions: pos, width: el === "approach" ? 2.5 : 1.5, material: col } });
+    }
+  }));
+  // Height labels at the outer end of each surface, plus a pin at the pad
+  design.surfaces.forEach(s => {
+    const d = [Math.sin(s.bearing * Math.PI / 180), Math.cos(s.bearing * Math.PI / 180)], r = s.r0 + 4000;
+    const [la, lo] = prj.toLL(d[0] * r, d[1] * r);
+    const hFt = deckFt + s.endHeight;
+    viewer.entities.add({
+      position: C.Cartesian3.fromDegrees(lo, la, baseH + hFt * FT),
+      label: { text: `Path ${s.label}  ${s.slope}:1\n${Math.round(s.endHeight)} ft above pad`, font: "600 14px Barlow, Arial, sans-serif", fillColor: C.Color.WHITE, outlineColor: C.Color.BLACK, outlineWidth: 3, style: C.LabelStyle.FILL_AND_OUTLINE, verticalOrigin: C.VerticalOrigin.BOTTOM, pixelOffset: new C.Cartesian2(0, -8), disableDepthTestDistance: Number.POSITIVE_INFINITY },
+      point: { pixelSize: 7, color: C.Color.fromCssColorString(COLORS.approach), outlineColor: C.Color.WHITE, outlineWidth: 1.5, disableDepthTestDistance: Number.POSITIVE_INFINITY },
+    });
+  });
+  viewer.entities.add({
+    position: C.Cartesian3.fromDegrees(S.lon, S.lat, baseH + deckFt * FT),
+    label: { text: S.name || "Vertiport", font: "700 15px 'Barlow Condensed', Arial, sans-serif", fillColor: C.Color.fromCssColorString(COLORS.fato), outlineColor: C.Color.BLACK, outlineWidth: 3, style: C.LabelStyle.FILL_AND_OUTLINE, verticalOrigin: C.VerticalOrigin.BOTTOM, pixelOffset: new C.Cartesian2(0, -14), disableDepthTestDistance: Number.POSITIVE_INFINITY },
+  });
+  $("camPaths").innerHTML = design.surfaces.map((s, i) =>
+    `<button class="wide" data-final="${i}" title="Pilot's view on final, from the outer end of the surface">Final ${s.label} · ${String(Math.round(s.course)).padStart(3, "0")}°</button>`).join("");
+  if (fly) flyOverview();
+}
+
+// ---------- 3D camera controls ----------
+const padCenter = () => window.Cesium.Cartesian3.fromDegrees(S.lon, S.lat, baseH + (design && design.elevated ? +S.deck : 0) * FT);
+function flyOverview() {
+  const C = window.Cesium, s0 = design.surfaces[0];
+  const lookFrom = s0 ? s0.bearing + 35 : 200;
+  viewer.camera.flyToBoundingSphere(new C.BoundingSphere(padCenter(), 600), {
+    offset: new C.HeadingPitchRange(C.Math.toRadians(lookFrom + 180), C.Math.toRadians(-22), 1900), duration: 1.2,
+  });
+}
+function getOrbit() {
+  const C = window.Cesium, cam = viewer.camera;
+  cam.lookAtTransform(C.Transforms.eastNorthUpToFixedFrame(padCenter()));
+  const o = { h: cam.heading, p: cam.pitch, r: C.Cartesian3.magnitude(cam.position) };
+  cam.lookAtTransform(C.Matrix4.IDENTITY);
+  return o;
+}
+function setOrbit(o) {
+  const C = window.Cesium, cam = viewer.camera;
+  o.p = Math.max(C.Math.toRadians(-89.5), Math.min(C.Math.toRadians(-1), o.p));
+  o.r = Math.max(40, Math.min(30000, o.r));
+  cam.lookAt(padCenter(), new C.HeadingPitchRange(o.h, o.p, o.r));
+  cam.lookAtTransform(C.Matrix4.IDENTITY);
+}
+const CAM_STEP = {
+  rotL: o => { o.h -= 0.025; }, rotR: o => { o.h += 0.025; },
+  tiltUp: o => { o.p += 0.015; }, tiltDn: o => { o.p -= 0.015; },
+  zoomIn: o => { o.r *= 0.975; }, zoomOut: o => { o.r *= 1.025; },
+};
+let camHold = null;
+function camLoop() {
+  if (!camHold || !viewer) return;
+  viewer.camera.cancelFlight();
+  const o = getOrbit(); CAM_STEP[camHold](o); setOrbit(o);
+  requestAnimationFrame(camLoop);
+}
+$("camctl").addEventListener("pointerdown", e => {
+  const b = e.target.closest("button[data-cam]"); if (!b || !viewer) return;
+  e.preventDefault(); b.setPointerCapture(e.pointerId);
+  camHold = b.dataset.cam; camLoop();
+});
+["pointerup", "pointercancel", "lostpointercapture"].forEach(ev => $("camctl").addEventListener(ev, () => { camHold = null; }));
+$("camctl").addEventListener("keydown", e => {
+  const b = e.target.closest("button[data-cam]"); if (!b || !viewer || (e.key !== "Enter" && e.key !== " ")) return;
+  e.preventDefault(); const o = getOrbit(); for (let i = 0; i < 6; i++) CAM_STEP[b.dataset.cam](o); setOrbit(o);
+});
+$("camOverview").onclick = () => viewer && flyOverview();
+$("camTop").onclick = () => {
+  if (!viewer) return; const C = window.Cesium, o = getOrbit();
+  viewer.camera.flyToBoundingSphere(new C.BoundingSphere(padCenter(), 1), { offset: new C.HeadingPitchRange(o.h, C.Math.toRadians(-89.5), 2600), duration: 1 });
+};
+$("camPaths").addEventListener("click", e => {
+  const b = e.target.closest("button[data-final]"); if (!b || !viewer) return;
+  const C = window.Cesium, s = design.surfaces[+b.dataset.final];
+  const prj = makeProjector(S.lat, S.lon), r = s.r0 + 4000;
+  const d = [Math.sin(s.bearing * Math.PI / 180), Math.cos(s.bearing * Math.PI / 180)];
+  const [la, lo] = prj.toLL(d[0] * r, d[1] * r);
+  const deckFt = design.elevated ? +S.deck : 0;
+  viewer.camera.flyTo({
+    destination: C.Cartesian3.fromDegrees(lo, la, baseH + (deckFt + s.endHeight + 15) * FT),
+    orientation: { heading: C.Math.toRadians(s.course), pitch: -Math.atan2(s.endHeight + 15, r), roll: 0 },
+    duration: 1.5,
+  });
+});
+
+function setMode(is3d) {
+  mode3d = is3d;
+  $("v2d").setAttribute("aria-pressed", String(!is3d));
+  $("v3d").setAttribute("aria-pressed", String(is3d));
+  $("map").style.visibility = is3d ? "hidden" : "visible";
+  $("globe").hidden = !is3d;
+  $("camctl").hidden = !is3d;
+  if (is3d) open3d(); else { gstat(""); map.invalidateSize(); }
+}
+$("v2d").onclick = () => setMode(false);
+$("v3d").onclick = () => setMode(true);
+
+writeForm();
+update(true);
+</script>
+</body>
+</html>
