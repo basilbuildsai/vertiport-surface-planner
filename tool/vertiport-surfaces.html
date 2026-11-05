@@ -264,6 +264,7 @@ select.pop:focus { outline: none; color: var(--blue); }
       <div class="views segc" id="views" hidden role="group" aria-label="3D views">
         <button id="camOverview" aria-pressed="false">Overview</button>
         <button id="camTop" aria-pressed="false">Top Down</button>
+        <button id="camAir" aria-pressed="false" hidden title="Pull back to show the controlled airspace around the pad">Airspace</button>
         <span id="camPaths" style="display:contents"></span>
       </div>
       <div class="legend mat" id="legend"></div>
@@ -1042,19 +1043,43 @@ function drawAir2d() {
 }
 function drawAir3d() {
   if (!viewer || !S.airspace) return;
-  const C = window.Cesium;
+  const C = window.Cesium, toH = ft => baseH + (ft - S.groundElev) * FT, kx = Math.cos(S.lat * Math.PI / 180);
+  const near = {};   // label only the closest piece of each named area, on its wall nearest the pad
+  air.feats.forEach(f => ringsOf(f.geometry).slice(0, 1).forEach(poly => poly[0].forEach(([x, y]) => {
+    const k = `${f.properties.CLASS}|${f.properties.NAME}`, d = ((x - S.lon) * kx) ** 2 + (y - S.lat) ** 2;
+    if (!near[k] || d < near[k].d) near[k] = { d, f, x, y };
+  })));
   air.feats.forEach(f => {
     const p = f.properties, st = AIR_STYLE[p.CLASS], col = C.Color.fromCssColorString(st.color);
-    const lo = airFloor(p) == null ? baseH : airFloor(p) * FT, hi = (airCeil(p) || ((airFloor(p) || 0) + 2500)) * FT;
+    const fl = airFloor(p), lo = fl == null ? baseH : toH(fl), hi = toH(airCeil(p) || (fl == null ? S.groundElev : fl) + 2500);
     ringsOf(f.geometry).forEach(poly => {
       const toPos = r => C.Cartesian3.fromDegreesArray(r.flatMap(([x, y]) => [x, y]));
       viewer.entities.add({ name: `${airName(p)} ${st.label}`, description: `<p>${airRange(p)}</p>`,
         polygon: { hierarchy: new C.PolygonHierarchy(toPos(poly[0]), poly.slice(1).map(h => new C.PolygonHierarchy(toPos(h)))),
-          height: lo, extrudedHeight: hi, material: col.withAlpha(.07), outline: false } });
-      [lo, hi].forEach(h => viewer.entities.add({ polyline: { positions: C.Cartesian3.fromDegreesArrayHeights(poly[0].flatMap(([x, y]) => [x, y, h])), width: h === hi ? 2 : 1.5,
+          height: lo, extrudedHeight: hi, material: col.withAlpha(.1), outline: false } });
+      [lo, hi].forEach(h => viewer.entities.add({ polyline: { positions: C.Cartesian3.fromDegreesArrayHeights(poly[0].flatMap(([x, y]) => [x, y, h])), width: h === hi ? 2.5 : 1.5,
         material: st.dash ? new C.PolylineDashMaterialProperty({ color: col, dashLength: 24 }) : col.withAlpha(h === hi ? 1 : .7) } }));
+      const ring = poly[0], step = Math.max(1, Math.round(ring.length / 32));
+      for (let i = 0; i < ring.length - 1; i += step) viewer.entities.add({ polyline: { positions: C.Cartesian3.fromDegreesArrayHeights([ring[i][0], ring[i][1], lo, ring[i][0], ring[i][1], hi]), width: 1, material: col.withAlpha(.45) } });
     });
+    const n = near[`${p.CLASS}|${p.NAME}`];
+    if (n && n.f === f) viewer.entities.add({ position: C.Cartesian3.fromDegrees(n.x, n.y, hi), label: { text: `${airName(p)} ${st.label}\n${airRange(p)}`, font: "500 12px -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif",
+      fillColor: C.Color.WHITE, showBackground: true, backgroundColor: col.withAlpha(.92), backgroundPadding: new C.Cartesian2(8, 5), verticalOrigin: C.VerticalOrigin.BOTTOM,
+      pixelOffset: new C.Cartesian2(0, -6), disableDepthTestDistance: Number.POSITIVE_INFINITY } });
   });
+}
+// Pull the camera back far enough to see the airspace around the pad.
+function flyAirspace() {
+  if (!viewer || !air.feats.length) return;
+  const C = window.Cesium, toH = ft => baseH + (ft - S.groundElev) * FT;
+  let pick = air.feats.filter(f => inFeature(f, S.lon, S.lat));
+  if (!pick.length) pick = air.feats.filter(f => milesBetween(S.lat, S.lon, (f.bbox[1] + f.bbox[3]) / 2, (f.bbox[0] + f.bbox[2]) / 2) < 20);
+  if (!pick.length) pick = air.feats;
+  const pts = pick.flatMap(f => { const [a, b, c, d] = f.bbox, h = toH(airCeil(f.properties) || S.groundElev + 2500); return [[a, b], [a, d], [c, b], [c, d]].map(([x, y]) => C.Cartesian3.fromDegrees(x, y, h)); });
+  pts.push(C.Cartesian3.fromDegrees(S.lon, S.lat, baseH));
+  const sphere = C.BoundingSphere.fromPoints(pts), o = getOrbit();
+  viewer.camera.flyToBoundingSphere(sphere, { offset: new C.HeadingPitchRange(o.h, C.Math.toRadians(-28), sphere.radius * 2.3), duration: 1.5 });
+  markView("camAir");
 }
 // ---------- Landing facilities (FAA NASR APT_BASE, bundled in data/facilities.js) ----------
 const FAC_TYPES = { A: ["Airport", ""], H: ["Heliport", "H"], C: ["Seaplane base", "S"], G: ["Gliderport", "G"], U: ["Ultralight park", "U"], B: ["Balloonport", "B"] };
@@ -1288,15 +1313,18 @@ function renderLegend() {
 async function refreshAir() {
   if (S.airspace) { await loadAir(); $("airFoot").textContent = airFootText(); }
   else $("airFoot").textContent = "From the FAA NASR 28-day airspace data.";
+  $("camAir").hidden = !S.airspace;
   drawAir2d(); renderLegend(); if (design) results();
   if (mode3d && viewer) render3d(false);
 }
 $("airOn").checked = !!S.airspace;
-$("airOn").addEventListener("change", () => {
+$("airOn").addEventListener("change", async () => {
   S.airspace = $("airOn").checked;
   try { localStorage.setItem("vsp-state", JSON.stringify(S)); } catch (e) {}
-  refreshAir();
+  await refreshAir();
+  if (S.airspace && mode3d && viewer) flyAirspace();
 });
+$("camAir").onclick = () => flyAirspace();
 
 map.on("click", e => { $("lat").value = e.latlng.lat.toFixed(6); $("lon").value = e.latlng.lng.toFixed(6); update(); lookupElev(); });
 centerMarker.on("dragend", e => { const p = e.target.getLatLng(); $("lat").value = p.lat.toFixed(6); $("lon").value = p.lng.toFixed(6); update(); lookupElev(); });

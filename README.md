@@ -94,7 +94,7 @@ Under **Nearby aviation** in the sidebar, two switches add FAA data around the p
 
 ![Winston-Salem Class D and Greensboro Class C airspace, with nearby airports and heliports](docs/images/10-airspace-airports.jpg)
 
-The example pad sits inside the Smith Reynolds Class D surface area, so Notes flags it. In 3D View each airspace area is a block from its floor to its ceiling.
+The example pad sits inside the Smith Reynolds Class D surface area, so Notes flags it. In 3D View each airspace area is a block from its floor to its ceiling, labeled on the side nearest the pad. Turning the switch on in 3D View pulls the camera back to show the airspace; the **Airspace** button at the bottom does the same later.
 
 ![Winston-Salem Class D and Greensboro Class C airspace in 3D](docs/images/11-airspace-3d.jpg)
 
