@@ -88,6 +88,7 @@ a:hover { text-decoration: underline; }
 .fld:focus { background: #fff; box-shadow: 0 0 0 3px rgba(0,122,255,.35); }
 .search { position: relative; }
 .search .fld { padding-left: 30px; }
+#ionToken:not(:focus) { -webkit-text-security: disc; }
 .search svg { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); width: 14px; height: 14px; color: var(--label2); pointer-events: none; }
 select.pop { appearance: none; -webkit-appearance: none; border: none; background: transparent; color: var(--label2); text-align: right; padding: 4px 18px 4px 4px; cursor: pointer; max-width: 200px;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='12' fill='none' stroke='%233c3c43' stroke-opacity='.6' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1.5 4.5 4 2l2.5 2.5M1.5 7.5 4 10l2.5-2.5'/%3E%3C/svg%3E");
@@ -1037,9 +1038,12 @@ function drawAir2d() {
   const sorted = air.feats.slice().sort((a, b) => "DCB".indexOf(a.properties.CLASS) - "DCB".indexOf(b.properties.CLASS));
   L.geoJSON({ type: "FeatureCollection", features: sorted }, {
     pane: "air",
+    interactive: false,
     style: f => { const st = AIR_STYLE[f.properties.CLASS]; return { color: st.color, weight: 2.5, opacity: .9, dashArray: st.dash ? "10 7" : null, fillColor: st.color, fillOpacity: .05 }; },
-    onEachFeature: (f, l) => l.bindTooltip(`<b>${airName(f.properties)} ${AIR_STYLE[f.properties.CLASS].label}</b><br>${airRange(f.properties)}`, { sticky: true }),
   }).addTo(airLayer);
+  // Big areas cover the whole view, so only their edges show a tooltip.
+  sorted.forEach(f => ringsOf(f.geometry).forEach(poly => poly.forEach(r => L.polyline(r.map(([x, y]) => [y, x]), { pane: "air", weight: 12, opacity: 0 })
+    .bindTooltip(`<b>${airName(f.properties)} ${AIR_STYLE[f.properties.CLASS].label}</b><br>${airRange(f.properties)}`, { sticky: true }).addTo(airLayer))));
 }
 function drawAir3d() {
   if (!viewer || !S.airspace) return;
@@ -1135,7 +1139,7 @@ function drawFac3d() {
     const pub = f.use === "PU";
     viewer.entities.add({ name: `${f.id} ${f.name}`, description: `<p>${f.city}, ${f.state}<br>${facLabel(f)}<br>Elevation ${f.elev} ft · ${fmtMi(f.mi)} mi from the pad</p>`,
       position: C.Cartesian3.fromDegrees(f.lon, f.lat, f.elev * FT + 15),
-      point: { pixelSize: 9, color: pub ? C.Color.fromCssColorString("#1c1c1e") : C.Color.WHITE, outlineColor: pub ? C.Color.WHITE : C.Color.fromCssColorString("#1c1c1e"), outlineWidth: 2, disableDepthTestDistance: Number.POSITIVE_INFINITY },
+      point: { pixelSize: 9, color: pub ? C.Color.fromCssColorString("#1c1c1e") : C.Color.WHITE, outlineColor: pub ? C.Color.WHITE : C.Color.fromCssColorString("#1c1c1e"), outlineWidth: 2, disableDepthTestDistance: Number.POSITIVE_INFINITY, distanceDisplayCondition: new C.DistanceDisplayCondition(0, 45000) },
       label: { text: `${FAC_TYPES[f.type][1] ? FAC_TYPES[f.type][1] + " · " : ""}${f.id}`, font: "600 12px -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif", fillColor: C.Color.WHITE,
         outlineColor: C.Color.BLACK, outlineWidth: 3, style: C.LabelStyle.FILL_AND_OUTLINE, pixelOffset: new C.Cartesian2(0, -14), verticalOrigin: C.VerticalOrigin.BOTTOM,
         distanceDisplayCondition: new C.DistanceDisplayCondition(0, 12000), disableDepthTestDistance: Number.POSITIVE_INFINITY } });
@@ -1271,9 +1275,11 @@ function drawP77_2d() {
   p77Layer.clearLayers();
   if (!S.part77) return;
   p77.list.forEach(a => P77_ORDER.forEach(k => a.surfaces.filter(s => s.kind === k).forEach(s => {
-    const ll = r => r.map(([x, y]) => a.prj.toLL(x, y));
-    L.polygon([ll(s.ring), ...s.holes.map(ll)], { pane: "air", color: P77C[k], fillColor: P77C[k], ...P77_STYLE[k] })
-      .bindTooltip(`<b>${a.name} (${a.id})</b><br>${s.label.replace(/^\S+ /, "")}`, { sticky: true }).addTo(p77Layer);
+    const ll = r => r.map(([x, y]) => a.prj.toLL(x, y)), tip = `<b>${a.name} (${a.id})</b><br>${s.label.replace(/^\S+ /, "")}`;
+    const big = k === "horizontal" || k === "conical";
+    const poly = L.polygon([ll(s.ring), ...s.holes.map(ll)], { pane: "air", color: P77C[k], fillColor: P77C[k], interactive: !big, ...P77_STYLE[k] }).addTo(p77Layer);
+    if (big) L.polyline(ll(s.ring.concat([s.ring[0]])), { pane: "air", weight: 12, opacity: 0 }).bindTooltip(tip, { sticky: true }).addTo(p77Layer);
+    else poly.bindTooltip(tip, { sticky: true });
   })));
 }
 function drawP77_3d() {
@@ -1555,7 +1561,7 @@ async function render3d(fly) {
     const d = [Math.sin(s.bearing * Math.PI / 180), Math.cos(s.bearing * Math.PI / 180)], r = s.r0 + 4000;
     const [la, lo] = prj.toLL(d[0] * r, d[1] * r);
     viewer.entities.add({ position: C.Cartesian3.fromDegrees(lo, la, baseH + (deckFt + s.endHeight) * FT), point: { pixelSize: 8, color: C.Color.WHITE, outlineColor: C.Color.fromCssColorString(COLORS.approach), outlineWidth: 2.5, disableDepthTestDistance: Number.POSITIVE_INFINITY },
-      label: { ...pill(`Path ${s.label} · ${s.slope}:1 · ${Math.round(s.endHeight)} ft`, COLORS.approach), pixelOffset: new C.Cartesian2(0, -14) } });
+      label: { ...pill(`Path ${s.label} · ${s.slope}:1 · ${Math.round(s.endHeight)} ft`, COLORS.approach), pixelOffset: new C.Cartesian2(0, -14), distanceDisplayCondition: new C.DistanceDisplayCondition(0, 9000) } });
   });
   viewer.entities.add({ position: C.Cartesian3.fromDegrees(S.lon, S.lat, baseH + deckFt * FT), label: { ...pill(S.name || "Vertiport", "#1c1c1e"), pixelOffset: new C.Cartesian2(0, -18) } });
   drawAir3d(); drawP77_3d(); drawFac3d();
