@@ -75,19 +75,67 @@ To see which buildings rise into an approach surface, add a free Cesium ion toke
 3. Click **Access Tokens** at the top of the page, then the token named **Default**.
 4. Copy the long token and paste it into the **Cesium ion token** box in the planner.
 
+With a token, buildings appear in gray and you can see which ones rise through a surface. In this example, two downtown Raleigh towers stand inside the 15:1 approach surface.
+
+![3D buildings over satellite imagery, with the approach surface passing through downtown towers](docs/images/07-3d-buildings.jpg)
+
+![The same view on the light map](docs/images/08-3d-buildings-light.jpg)
+
 The token is saved only in your browser. Cesium's free Community plan is for noncommercial use, so check Cesium's terms before using it for agency work. Nothing else in the planner needs a key or an account.
+
+## Nearby airspace and airports
+
+Under **Nearby aviation** in the sidebar, two switches add FAA data around the pad:
+
+- **Class B, C and D airspace** draws controlled airspace the way a sectional chart does: Class B solid blue, Class C solid magenta, Class D dashed blue. Hover an area for its floor and ceiling. If the pad sits inside or under one, Notes says so and what ATC contact flights there need.
+- **Airports and heliports** shows every open landing facility within about 50 miles: airports, heliports, seaplane bases, gliderports, ultralight parks and balloonports. Use the buttons under the switch to pick types. The three nearest are listed by name and distance.
+
+![Class C airspace and nearby heliports around downtown Raleigh](docs/images/10-airspace-airports.jpg)
+
+In 3D View each airspace area is a block from its floor to its ceiling.
+
+![Raleigh-Durham Class C airspace in 3D](docs/images/11-airspace-3d.jpg)
+
+Both layers come from the FAA's NASR 28-day subscription and are built into the planner, so they work offline. The cycle date shows under each switch. The FAA updates NASR every 28 days, so check the current sectional chart before relying on it.
+
+## Pad markings
+
+The planner draws the TLOF markings from Figure 4-15 of the draft AC. Every heliport and vertiport uses the same H, 10 ft tall, in the center of the TLOF; there is no separate "V" symbol. When the design aircraft is powered lift, "VTL" goes in the top-left corner. A box in the lower-right corner shows the weight limit in thousands of pounds over the rotor diameter. All of them read upright to a pilot flying Path 1, so on a north-up map they may look rotated. Zoom in all the way to see them.
+
+![The H, VTL and weight box on the pad](docs/images/09-pad-markings.jpg)
+
+Turning off **Standard H or VTL marking** removes them and adds 10 ft to the safety area, as the AC requires.
 
 ## Open your export in Google Earth or GIS
 
-**Google Earth Pro** (free desktop app): choose File, then Open, and pick the `.kml` file.
+To see what an export looks like before you make one, open the samples in [`docs/examples`](docs/examples).
 
-**Google Earth on the web:** go to https://earth.google.com, click **Projects**, then **New project**, then **Import KML file from computer**.
+### Google Earth
+
+You don't need to install anything. Google Earth on the web opens the KML file directly:
+
+1. Go to https://earth.google.com and sign in with any Google account.
+2. Click **Local KML editor** at the bottom left, then **Open KML/Z from device**, and pick the `.kml` file.
+
+The file stays on your computer; nothing is uploaded to your Google account.
+
+![The example export in Google Earth on the web](docs/images/14-google-earth.jpg)
+
+If you prefer the desktop app, Google Earth Pro is a free download from Google. Choose File, then Open, and pick the `.kml` file. Google Earth Pro also fills the sloped surfaces with color; the web version mostly shows their outlines.
 
 The pad areas lie on the ground. The approach and transitional surfaces float at their true altitude, so tilt the view to see them. If a surface starts above or below the pad, the ground elevation in the planner differs from Google Earth's terrain; type Google Earth's elevation into the planner and export again.
 
-**QGIS:** drag the `.geojson` file onto the map.
+### QGIS
 
-**ArcGIS Pro:** run the **JSON To Features** geoprocessing tool on the `.geojson` file.
+Drag the `.geojson` file onto the map. QGIS gives every shape the same random color at first. To color it like the planner, download [`vertiport-surfaces.qml`](docs/qgis/vertiport-surfaces.qml), then right-click the layer, choose **Properties**, then **Style**, and at the bottom pick **Style**, then **Load Style**, and choose that file.
+
+![The example export in QGIS over satellite imagery, styled with the planner's colors](docs/images/12-qgis.jpg)
+
+![Close-up of the pad in QGIS, with the H and the weight box](docs/images/13-qgis-pad.jpg)
+
+### ArcGIS Pro
+
+Run the **JSON To Features** geoprocessing tool on the `.geojson` file.
 
 Coordinates are WGS 84 longitude and latitude (EPSG:4326). Heights are meters above mean sea level.
 
@@ -101,6 +149,7 @@ Coordinates are WGS 84 longitude and latitude (EPSG:4326). Heights are meters ab
 | Red | Heliport protection zone | The first 280 ft under each approach surface | 4.5.1 |
 | Purple dashed | Downwash caution area, where rotor wash may reach 34.5 mph | 780 by 420 ft per path, for aircraft of 7,000 lb or less | 4.6.1 |
 | Blue | Approach and departure surface | Starts at the FATO edge, widens to 500 ft at 4,000 ft out; 8:1 or flatter for helicopters, 15:1 or flatter for powered lift | 4.7.1.1 |
+| White, outlined | TLOF markings: the H, the "VTL" and the size/weight box | H 10 ft tall by 6 ft 8 in wide | 4.8.1.1, Figure 4-15 |
 | Green | Transitional surfaces | Rise at 2:1 from the sides of the approach surface, out to 250 ft from its centerline | 4.7.1.1 |
 
 Sites above 1,000 ft elevation get a longer FATO, read from Figure 4-4 of the draft AC to within about 5 ft. Helicopter presets come from Appendix E, Table E-1.
@@ -143,6 +192,15 @@ This is a planning sketch based on a draft standard. It is not an FAA airspace d
 ## For developers
 
 The whole planner is one HTML file, `tool/vertiport-surfaces.html`. The geometry is a set of pure functions in the `<script id="geometry">` block, with no page dependencies, so it can be tested in Node. It uses Leaflet for the 2D map and CesiumJS for the 3D view, both loaded from public CDNs.
+
+The airspace and airport layers live in `tool/data/`. To refresh them for a new NASR cycle, download the subscription from https://www.faa.gov/air_traffic/flight_info/aeronav/aero_data/NASR_Subscription/ and run:
+
+```
+scripts/build_airspace.sh <class_airspace_shape_files.zip> <cycle date>
+python3 scripts/build_facilities.py <DD_Mon_YYYY_CSV.zip> <cycle date>
+```
+
+The airspace script needs GDAL (`ogr2ogr`). The current files are from the October 29, 2026 cycle.
 
 To serve it on your own network:
 

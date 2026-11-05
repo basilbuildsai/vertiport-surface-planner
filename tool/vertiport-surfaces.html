@@ -170,7 +170,15 @@ select.pop:focus { outline: none; color: var(--blue); }
 .views.segc button { padding: 5px 14px; font-size: 13px; }
 
 /* Markers */
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chips button { border: none; border-radius: 999px; padding: 4px 10px; font: 500 12px var(--f); background: var(--fill); color: var(--label); cursor: pointer; display: inline-flex; align-items: center; gap: 5px; }
+.chips button[aria-pressed="true"] { background: var(--blue); color: #fff; }
+.fac { width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; font: 700 10px/1 var(--f); box-shadow: 0 1px 3px rgba(0,0,0,.35); }
+.fac.pu { background: #1c1c1e; color: #fff; border: 1.5px solid #fff; }
+.fac.pr { background: #fff; color: #1c1c1e; border: 1.5px solid #1c1c1e; }
+.fac.dot::after { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 .handle { width: 28px; height: 28px; border-radius: 50%; background: #fff; color: var(--blue); font: 600 12px/28px var(--f); text-align: center; box-shadow: 0 1px 4px rgba(0,0,0,.3), 0 0 0 .5px rgba(0,0,0,.1); cursor: grab; }
+.close-in .center-pin { width: 10px; height: 10px; background: transparent; border: 2px solid var(--blue); box-shadow: 0 0 0 1.5px #fff; margin: 6px; }
 .center-pin { width: 22px; height: 22px; border-radius: 50%; background: var(--blue); border: 3.5px solid #fff; box-shadow: 0 1px 6px rgba(0,0,0,.35); cursor: move; }
 .leaflet-tooltip { font-family: var(--f); font-size: 12px; border: none; border-radius: 8px; box-shadow: var(--shadow-2); padding: 6px 9px; color: var(--label); }
 .leaflet-container { font-family: var(--f); background: var(--map-bg); }
@@ -323,6 +331,21 @@ select.pop:focus { outline: none; color: var(--blue); }
       </div>
 
       <div class="sec">
+        <div class="sec-h">Nearby aviation</div>
+        <div class="grp">
+          <div class="cell"><span class="lab">Class B, C and D airspace<button class="info" data-info="airspace" aria-label="About controlled airspace"></button></span><input class="switch" id="airOn" type="checkbox" aria-label="Show Class B, C and D airspace"></div>
+        </div>
+        <div class="foot" id="airFoot">From the FAA NASR 28-day airspace data.</div>
+        <div class="grp" style="margin-top:8px">
+          <div class="cell"><span class="lab">Airports and heliports<button class="info" data-info="facilities" aria-label="About airports and heliports"></button></span><input class="switch" id="facOn" type="checkbox" aria-label="Show airports, heliports and other landing facilities"></div>
+          <div class="cell" id="facTypesCell" hidden><div class="chips" id="facTypes" role="group" aria-label="Facility types">
+            <button data-t="A" aria-pressed="true">Airports</button><button data-t="H" aria-pressed="true">Heliports</button><button data-t="C" aria-pressed="true">Seaplane bases</button><button data-t="GUB" aria-pressed="true">Glider, ultralight, balloon</button>
+          </div></div>
+        </div>
+        <div class="foot" id="facFoot">From the FAA NASR 28-day airport data.</div>
+      </div>
+
+      <div class="sec">
         <div class="sec-h">Results</div>
         <div class="tiles" id="tiles"></div>
         <div class="grp" style="margin-top:8px" id="res"></div>
@@ -393,6 +416,8 @@ select.pop:focus { outline: none; color: var(--blue); }
         <div class="cell"><span class="lab"><b>3D terrain</b><span class="sub">Esri World Elevation, or Cesium World Terrain with a token</span></span><span class="tag ok">No key</span></div>
         <div class="cell"><span class="lab"><b>3D buildings</b><span class="sub">OpenStreetMap buildings through Cesium ion</span></span><span class="tag opt">Free token</span></div>
         <div class="cell"><span class="lab"><b>Ground elevation</b><span class="sub">USGS Elevation Point Query (US); Open-Meteo elsewhere</span></span><span class="tag ok">No key</span></div>
+        <div class="cell"><span class="lab"><b>Class B, C and D airspace</b><span class="sub">FAA NASR 28-day subscription, Class Airspace shapefile</span></span><span class="tag ok">Built in</span></div>
+        <div class="cell"><span class="lab"><b>Airports and heliports</b><span class="sub">FAA NASR 28-day subscription, airport base records</span></span><span class="tag ok">Built in</span></div>
         <div class="cell"><span class="lab"><b>Address search</b><span class="sub">Photon, using OpenStreetMap data</span></span><span class="tag ok">No key</span></div>
         <div class="cell"><span class="lab"><b>Design rules</b><span class="sub">FAA Draft AC 150/5390-4, Chapter 4 and Appendices A and E</span></span><span class="tag ok">Built in</span></div>
       </div>
@@ -499,6 +524,32 @@ function computeDesign(p) {
     add("tlof", "TLOF", circleRing(tlof / 2), deckAlt, { diameter_ft: tlof });
   }
 
+  // TLOF markings, Figure 4-15 and paragraph 4.8.1.1: "H" centered, read upright from the preferred approach
+  // (path 1), a 1 ft bar 2 ft below it, "VTL" top left for powered lift, size/weight box lower right.
+  const labels = [];
+  if (p.hSymbol && paths.length) {
+    const course = norm360(+paths[0].course), Up = unit(course), Rt = unit(course + 90);
+    const at = (px, py) => [Rt[0] * px + Up[0] * py, Rt[1] * px + Up[1] * py, 0];
+    const ring = pts => { const r = pts.map(([a, b]) => at(a, b)); r.push(r[0]); return r; };
+    const A = 10, hb = 10 / 3, C = 1, F = 2, ha = A / 2;
+    add("marking", "Heliport identification symbol (H)", ring([[-hb, -ha], [-hb + C, -ha], [-hb + C, -F / 2], [hb - C, -F / 2], [hb - C, -ha], [hb, -ha], [hb, ha], [hb - C, ha], [hb - C, F / 2], [-hb + C, F / 2], [-hb + C, ha], [-hb, ha]]), deckAlt,
+      { height_ft: 10, width_ft: 6.67, note: "Figure 4-15, standard size; legs 1 ft, crossbar 2 ft" });
+    add("marking", "Preferred direction bar", ring([[-hb, -ha - 3], [hb, -ha - 3], [hb, -ha - 2], [-hb, -ha - 2]]), deckAlt, { note: "1 ft bar 2 ft below the H (recommended, Figure 4-13 note 4)" });
+    const circ = p.shape === "circle";
+    const bs = tlof >= 60 ? 10 : 5, edge = tlof / 2 - 1.5;
+    const [bx, by] = circ ? [hb + 2 + bs / 2, 0] : [edge - bs / 2, -(edge - bs / 2)];
+    add("marking", "Size/weight limitation box, weight", ring([[bx - bs / 2, by], [bx + bs / 2, by], [bx + bs / 2, by + bs / 2], [bx - bs / 2, by + bs / 2]]), deckAlt,
+      { weight_thousands_lb: Math.round(+p.mtow / 1000) || "none", box_ft: bs });
+    add("marking", "Size/weight limitation box, rotor diameter", ring([[bx - bs / 2, by - bs / 2], [bx + bs / 2, by - bs / 2], [bx + bs / 2, by], [bx - bs / 2, by]]), deckAlt, { rotor_diameter_ft: Math.round(RD) });
+    labels.push({ text: String(Math.round(+p.mtow / 1000) || ""), xy: at(bx, by + bs / 4), h: bs * 0.32, rot: course });
+    labels.push({ text: `RD${Math.round(RD)}`, xy: at(bx, by - bs / 4), h: bs * 0.28, rot: course });
+    if (p.category === "pl") {
+      const th = Math.min(4, Math.max(3, tlof / 15)), tw = th * 2.4;
+      const [tx, ty] = circ ? [-tlof * 0.22, tlof * 0.3] : [-(edge - tw / 2 - 0.5), edge - th / 2 - 0.5];
+      labels.push({ text: "VTL", xy: at(tx, ty), h: th, rot: course, outline: true });
+    }
+  }
+
   // Surfaces: one per direction (a reciprocal path makes two)
   const surfaces = [];
   paths.forEach((pa, i) => {
@@ -585,7 +636,7 @@ function computeDesign(p) {
   if (D > 0 && RD > D) msgs.push(["warn", "RD is larger than D. D should enclose the whole aircraft, so it is normally at least RD."]);
 
   return {
-    tlof, tlofRule, W, L, fatoRule, elevAdd, sa, saRule, heliportElev, elevated, surfaces, features, msgs, dcaOk,
+    tlof, tlofRule, W, L, fatoRule, labels, elevAdd, sa, saRule, heliportElev, elevated, surfaces, features, msgs, dcaOk,
     overall: isRect ? { length: L + 2 * sa, width: W + 2 * sa } : { length: W + 2 * sa, width: W + 2 * sa },
   };
 }
@@ -599,7 +650,7 @@ function vertexAltFt(design, alt, h) {
 
 const KML_STYLE = { // aabbggrr, Apple system colors
   tlof: ["ffffffff", "aaffffff"], fato: ["ff00ccff", "2600ccff"], safety: ["ff0095ff", "00000000"],
-  hpz: ["ff303bff", "40303bff"], dca: ["ffde52af", "14de52af"], approach: ["ffff7a00", "38ff7a00"], transitional: ["ff59c734", "2659c734"],
+  marking: ["ff1e1c1c", "ffffffff"], hpz: ["ff303bff", "40303bff"], dca: ["ffde52af", "14de52af"], approach: ["ffff7a00", "38ff7a00"], transitional: ["ff59c734", "2659c734"],
 };
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
@@ -637,6 +688,7 @@ ${design.surfaces.map(s => `<tr><td>Path ${s.label}</td><td>course ${Math.round(
 ${styles}
 <Placemark><name>${esc(site.name)}</name><description><![CDATA[${summary}]]></description><Point><coordinates>${site.lon},${site.lat},0</coordinates></Point></Placemark>
 ${group("Pad areas", ["tlof", "fato", "safety"])}
+${group("TLOF markings", ["marking"])}
 ${group("Heliport protection zones", ["hpz"])}
 ${group("Downwash/outwash caution area", ["dca"])}
 ${group("Approach/departure surfaces", ["approach"])}
@@ -676,7 +728,7 @@ const HELI = [
 const $ = id => document.getElementById(id);
 const COLORS = { tlof: "#ffffff", fato: "#ffcc00", safety: "#ff9500", hpz: "#ff3b30", dca: "#af52de", approach: "#007aff", transitional: "#34c759" };
 const LEG = [["tlof", "TLOF"], ["fato", "FATO"], ["safety", "Safety area"], ["hpz", "Protection zone"], ["dca", "Downwash caution area"], ["approach", "Approach / departure"], ["transitional", "Transitional"]];
-const ORDER = ["dca", "transitional", "approach", "hpz", "safety", "fato", "tlof"];
+const ORDER = ["dca", "transitional", "approach", "hpz", "safety", "fato", "tlof", "marking"];
 const INFO_ICON = '<svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="7" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M8 7v4.2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="8" cy="4.8" r=".9" fill="currentColor"/></svg>';
 
 // Plain-language help for every setting. Paragraph numbers refer to the draft AC.
@@ -689,7 +741,7 @@ const INFO = {
   fatoLen: ["FATO length", `<p>Leave it empty for the minimum size. Enter a larger number to stretch the FATO along Path 1. A longer FATO gives more room for aircraft that need a running takeoff.</p><p class="src">Draft AC 4.3.1.4 and 4.3.3</p>`],
   deck: ["Deck height", `<p>Height of the landing surface above the surrounding ground. Use 0 for a ground-level pad.</p><p>A pad 30 inches (2.5 ft) or more above the ground counts as elevated, such as a rooftop.</p><p class="src">Draft AC 4.2.1</p>`],
   fatoLB: ["Load-bearing FATO", `<p>Turn this off if only the TLOF can carry the aircraft's weight, which is common on rooftops. On an elevated pad with a non-load-bearing FATO, the TLOF grows by 20%.</p><p class="src">Draft AC 4.2.1.4</p>`],
-  hsym: ["H or VTL marking", `<p>The standard heliport "H" or vertiport "VTL" symbol painted on the pad. Without it, the safety area grows by 10 ft on every side.</p><p class="src">Draft AC 4.4.1.4 and 4.8</p>`],
+  hsym: ["H and VTL markings", `<p>Every heliport and vertiport uses the same <b>H</b>, 10 ft tall, centered in the TLOF. There is no separate "V" symbol.</p><p>When the design aircraft is powered lift, add <b>VTL</b> in the top-left corner of the TLOF (P-VTL at a private-use site; PVT for a private heliport with a helicopter design aircraft). A box in the lower-right corner shows the weight limit in thousands of pounds over the rotor diameter. All three are read upright by a pilot flying Path 1, with a short bar below the H marking that direction.</p><p>Without the standard H, the safety area grows by 10 ft on every side.</p><p class="src">Draft AC 4.4.1.4, 4.8.1.1 and Figure 4-15</p>`],
   course: ["Course", `<p>The heading the aircraft flies on final approach, in degrees from true north (not magnetic).</p><p>A course of 230° means the aircraft flies southwest toward the pad, so the approach surface lies to the northeast.</p><p>Drag the numbered handle on the 2D map to set it by eye.</p>`],
   slope: ["Approach slope", `<p>How steeply the protected surface rises. 8:1 means 1 ft up for every 8 ft out; 15:1 is flatter.</p><p>Helicopters: 8:1 or flatter. Powered lift: 15:1 or flatter. The FAA checks obstacles only against 8:1 under Part 77, so a flatter surface is for planning and is not protected.</p><p class="src">Draft AC 4.7.1.1</p>`],
   recip: ["Reciprocal", `<p>Adds the same surface on the opposite side of the pad, so aircraft can arrive and depart in both directions. Where that isn't possible, the AC calls for a second path at least 135° away.</p>`],
@@ -702,6 +754,8 @@ const INFO = {
   kml: ["Open in Google Earth", `<ol><li>Click <b>Google Earth (KML)</b>. The file saves to your Downloads folder.</li><li><b>Google Earth Pro</b> (free desktop app): File › Open, then pick the file.</li><li><b>Google Earth on the web</b>: open earth.google.com, click Projects › New project › Import KML file from computer.</li></ol><p>Pad areas lie on the ground. Surfaces float at their true altitude; tilt the view to see them.</p>`],
   geojson: ["Open in GIS", `<ol><li>Click <b>GIS (GeoJSON)</b> to download the file.</li><li><b>QGIS</b>: drag the file onto the map.</li><li><b>ArcGIS Pro</b>: run the <i>JSON To Features</i> tool on the file.</li></ol><p>Coordinates are WGS 84 longitude and latitude. Heights are meters above sea level.</p>`],
   design: ["Design file", `<p><b>Save</b> downloads a small .json file with every setting on this page. <b>Open</b> loads one back, so you can return to a site or send it to a colleague.</p>`],
+  airspace: ["Controlled airspace", `<p>Shows Class B, C and D airspace within about 50 miles of the pad, drawn the way a sectional chart draws it: Class B solid blue, Class C solid magenta, Class D dashed blue. Hover an area for its floor and ceiling. In 3D View each area is a block from its floor to its ceiling.</p><p>If the pad sits inside or under one of these areas, Notes says so. Flights there need two-way radio contact with ATC (Class C and D) or an ATC clearance (Class B).</p><p class="src">FAA NASR 28-day subscription, Class Airspace shapefile. The cycle date shows under the switch. The FAA updates NASR every 28 days, so check the current cycle or sectional chart before relying on it.</p>`],
+  facilities: ["Airports and heliports", `<p>Shows every open landing facility in the FAA's airport records within about 50 miles of the pad: airports, heliports, seaplane bases, gliderports, ultralight parks and balloonports. Use the buttons to pick which types appear.</p><p>Dark symbols are public use, white symbols are private use. Letters mark the type: H heliport, S seaplane base, G gliderport, U ultralight, B balloonport; a dot is an airport, and a ring around it means a control tower. Hover a symbol for its name and distance. The three nearest show under the switch.</p><p class="src">FAA NASR 28-day subscription, APT_BASE. Cycle date shows under the switch.</p>`],
   token: ["Get a free Cesium ion token", `<p>A token adds detailed terrain and 3D buildings to the 3D View, so you can see what rises into a surface.</p><ol><li>Go to <a href="https://ion.cesium.com/signup" target="_blank" rel="noopener">ion.cesium.com/signup</a> and create a free account. Signing up with Google is quickest.</li><li>When asked how you'll use it, choose <b>"I'm a developer who wants to use Cesium ion in my apps."</b></li><li>Click <b>Access Tokens</b> at the top, then the token named <b>Default</b>.</li><li>Copy the long token and paste it in the box here.</li></ol><p>The token stays in this browser only. The free Community plan is for noncommercial use; check Cesium's terms for agency work.</p>`],
 };
 
@@ -755,7 +809,7 @@ function writeForm() {
   $("D").value = S.D; $("RD").value = S.RD; $("mtow").value = S.mtow;
   $("shape").value = S.shape; setSeg("shSq", "shCi", S.shape !== "circle");
   $("fatoLen").value = S.fatoLen || ""; $("deck").value = S.deck;
-  $("fatoLB").checked = S.fatoLoadBearing; $("hsym").checked = S.hSymbol; $("name").value = S.name;
+  $("fatoLB").checked = S.fatoLoadBearing; $("hsym").checked = S.hSymbol; $("name").value = S.name; $("airOn").checked = !!S.airspace; $("facOn").checked = !!S.facilities;
   renderPaths();
 }
 const pad3 = n => String(Math.round(((n % 360) + 360) % 360)).padStart(3, "0");
@@ -821,17 +875,34 @@ function update(recenter) {
   centerMarker.setLatLng([S.lat, S.lon]);
   if (recenter) fitPad();
   if (mode3d) render3d(recenter);
+  if (S.facilities && typeof refreshFac === "function" && fac.key !== `${S.lat.toFixed(4)},${S.lon.toFixed(4)}`) refreshFac();
+  if (S.airspace && typeof refreshAir === "function") { const k = `${Math.round(S.lat * 4) / 4},${Math.round(S.lon * 4) / 4}`; if (k !== air.key) refreshAir(); }
   try { localStorage.setItem("vsp-state", JSON.stringify(S)); } catch (e) {}
 }
 
 const STYLE2D = {
-  tlof: { color: "#1c1c1e", weight: 1.5, fillColor: "#ffffff", fillOpacity: .8 }, fato: { color: COLORS.fato, weight: 2.5, fillOpacity: .16 },
+  tlof: { color: "#1c1c1e", weight: 1.5, fillColor: "#e5e5ea", fillOpacity: .85 }, marking: { color: "#1c1c1e", weight: 1, fillColor: "#ffffff", fillOpacity: 1 }, fato: { color: COLORS.fato, weight: 2.5, fillOpacity: .16 },
   safety: { color: COLORS.safety, weight: 2, dashArray: "6 5", fill: false }, hpz: { color: COLORS.hpz, weight: 1.5, fillOpacity: .22 },
   dca: { color: COLORS.dca, weight: 1.5, dashArray: "4 6", fillOpacity: .05 }, approach: { color: COLORS.approach, weight: 2, fillOpacity: .16 },
   transitional: { color: COLORS.transitional, weight: 1, fillOpacity: .12 },
 };
+const markLayer = L.layerGroup().addTo(map);
+function drawMarkText() {
+  markLayer.clearLayers();
+  if (!design || !design.labels) return;
+  const prj = makeProjector(S.lat, S.lon);
+  const mpp = 40075016.686 * Math.cos(S.lat * Math.PI / 180) / 2 ** (map.getZoom() + 8);
+  design.labels.forEach(l => {
+    const px = l.h * FT / mpp; if (px < 5) return;
+    const style = `font:800 ${px.toFixed(1)}px/1 -apple-system,BlinkMacSystemFont,'Helvetica Neue',Arial,sans-serif;transform:translate(-50%,-50%) rotate(${l.rot}deg);white-space:nowrap;letter-spacing:.04em;` +
+      (l.outline ? `color:#fff;-webkit-text-stroke:${Math.max(.8, px / 14).toFixed(1)}px #1c1c1e;` : "color:#1c1c1e;");
+    L.marker(prj.toLL(l.xy[0], l.xy[1]), { interactive: false, keyboard: false, icon: L.divIcon({ className: "", iconSize: [0, 0], html: `<div style="position:absolute;${style}">${esc(l.text)}</div>` }) }).addTo(markLayer);
+  });
+}
+map.on("zoomend", () => { drawMarkText(); map.getContainer().classList.toggle("close-in", map.getZoom() >= 19); });
 function drawShapes(withTips) {
   layer.clearLayers();
+  drawMarkText();
   const prj = makeProjector(S.lat, S.lon);
   ORDER.forEach(el => design.features.filter(f => f.element === el).forEach(f => {
     const poly = L.polygon(f.ring.map(([x, y]) => prj.toLL(x, y)), STYLE2D[el]);
@@ -878,9 +949,202 @@ function results() {
   $("res").innerHTML = rows.map(([k, t, v, r]) => `<div class="cell"><span class="lab">${k ? `<span class="sw" style="background:${COLORS[k]}"></span>` : ""}${t}${k ? `<button class="info" data-info="${k}" aria-label="About ${t}"></button>` : ""}</span><span class="rv">${v}<small>${r}</small></span></div>`).join("");
   decorateInfo($("res"));
   const ic = { info: "i", warn: "!", bad: "!" };
-  $("msgs").innerHTML = d.msgs.map(([lvl, t]) => `<div class="cell"><div class="note n-${lvl}"><span class="ic">${ic[lvl] || "!"}</span><p>${t}</p></div></div>`).join("");
-  $("notesSec").hidden = !d.msgs.length;
+  const allMsgs = d.msgs.concat(airNotes());
+  $("msgs").innerHTML = allMsgs.map(([lvl, t]) => `<div class="cell"><div class="note n-${lvl}"><span class="ic">${ic[lvl] || "!"}</span><p>${t}</p></div></div>`).join("");
+  $("notesSec").hidden = !allMsgs.length;
 }
+
+// ---------- Controlled airspace (FAA NASR Class Airspace, bundled in data/airspace-bcd.js) ----------
+const AIR_STYLE = { B: { color: "#1f5fff", label: "Class B" }, C: { color: "#c2187f", label: "Class C" }, D: { color: "#1f5fff", dash: true, label: "Class D" } };
+const air = { feats: [], key: "", loading: null, pane: map.createPane("air") };
+air.pane.style.zIndex = 350;
+const airLayer = L.layerGroup().addTo(map);
+const titleCase = t => String(t || "").toLowerCase().replace(/\b([a-z])/g, c => c.toUpperCase()).replace(/\bClass ([a-z])\b/gi, (m, c) => "Class " + c.toUpperCase()).replace(/\b(Aaf|Afb|Nas|Nolf|Mcas|Jrb|Ang|Arb|Faa|Ems|Llc|Inc|Usa|Us|Va)\b/g, m => m.toUpperCase()).replace(/\b(Mc)([a-z])/g, (m, a, b) => a + b.toUpperCase());
+const airFloor = p => (p.LOWER_CODE === "SFC" || !(p.LOWER_VAL > 0)) ? null : p.LOWER_VAL;
+const airCeil = p => p.UPPER_VAL > 0 ? p.UPPER_VAL : null;
+function airRange(p) {
+  const f = airFloor(p), c = airCeil(p), n = v => v.toLocaleString("en-US") + " ft MSL";
+  return `${f == null ? "surface" : n(f)} to ${c == null ? "the airspace above" : n(c)}`;
+}
+function airName(p) { return titleCase(p.NAME).replace(/ Class [BCD]$/, ""); }
+function ringsOf(g) { return g.type === "Polygon" ? [g.coordinates] : g.type === "MultiPolygon" ? g.coordinates : []; }
+function inRing(x, y, r) {
+  let inside = false;
+  for (let i = 0, j = r.length - 1; i < r.length; j = i++) {
+    const [xi, yi] = r[i], [xj, yj] = r[j];
+    if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) inside = !inside;
+  }
+  return inside;
+}
+const inFeature = (f, lon, lat) => ringsOf(f.geometry).some(poly => inRing(lon, lat, poly[0]) && !poly.slice(1).some(h => inRing(lon, lat, h)));
+function airNotes() {
+  if (!S.airspace || !air.feats.length) return [];
+  const hits = air.feats.filter(f => inFeature(f, S.lon, S.lat));
+  hits.sort((a, b) => (airFloor(a.properties) || 0) - (airFloor(b.properties) || 0));
+  return hits.map(f => {
+    const p = f.properties, cls = `Class ${p.CLASS}`, fl = airFloor(p);
+    const need = p.CLASS === "B" ? "an ATC clearance" : "two-way radio contact with ATC";
+    return fl == null
+      ? ["warn", `The pad is inside the ${airName(p)} ${cls} surface area (${airRange(p)}). Flights here need ${need}.`]
+      : ["info", `The pad is under the ${airName(p)} ${cls} shelf, ${airRange(p)}. Flights that climb into it need ${need}.`];
+  });
+}
+function loadAirData() {
+  if (window.AIRSPACE) return Promise.resolve();
+  if (air.script) return air.script;
+  air.script = new Promise((res, rej) => {
+    const el = document.createElement("script"); el.src = "data/airspace-bcd.js";
+    el.onload = () => {
+      AIRSPACE.data.features.forEach(f => {
+        const p = f.properties; ["LOWER_VAL", "UPPER_VAL"].forEach(k => { p[k] = +p[k]; });
+        let a = 180, b = 90, c = -180, d = -90;
+        ringsOf(f.geometry).forEach(poly => poly[0].forEach(([x, y]) => { a = Math.min(a, x); b = Math.min(b, y); c = Math.max(c, x); d = Math.max(d, y); }));
+        f.bbox = [a, b, c, d];
+      });
+      res();
+    };
+    el.onerror = () => { air.script = null; rej(new Error("airspace data did not load")); };
+    document.head.appendChild(el);
+  });
+  return air.script;
+}
+async function loadAir() {
+  const key = `${Math.round(S.lat * 4) / 4},${Math.round(S.lon * 4) / 4}`;
+  if (key === air.key) return;
+  $("airFoot").textContent = "Loading airspace…";
+  try { await loadAirData(); air.failed = false; } catch (e) { air.feats = []; air.key = ""; air.failed = true; return; }
+  const box = [S.lon - 0.95, S.lat - 0.75, S.lon + 0.95, S.lat + 0.75];
+  air.feats = AIRSPACE.data.features.filter(f => AIR_STYLE[f.properties.CLASS] && f.bbox[0] < box[2] && f.bbox[2] > box[0] && f.bbox[1] < box[3] && f.bbox[3] > box[1]);
+  air.key = key;
+}
+function airFootText() {
+  if (air.failed && !air.feats.length) return "Airspace data didn't load. Check that the data folder is next to the planner file.";
+  const n = {}; air.feats.forEach(f => { const k = `${f.properties.CLASS}|${airName(f.properties)}`; n[k] = 1; });
+  const names = Object.keys(n).map(k => k.split("|")).sort().map(([c, nm]) => `${nm} (${c})`);
+  return names.length ? `Within about 50 miles: ${names.join(", ")}. FAA NASR cycle ${AIRSPACE.cycle}.` : `No Class B, C or D airspace within about 50 miles (FAA NASR cycle ${AIRSPACE.cycle}).`;
+}
+function drawAir2d() {
+  airLayer.clearLayers();
+  if (!S.airspace) return;
+  const sorted = air.feats.slice().sort((a, b) => "DCB".indexOf(a.properties.CLASS) - "DCB".indexOf(b.properties.CLASS));
+  L.geoJSON({ type: "FeatureCollection", features: sorted }, {
+    pane: "air",
+    style: f => { const st = AIR_STYLE[f.properties.CLASS]; return { color: st.color, weight: 2.5, opacity: .9, dashArray: st.dash ? "10 7" : null, fillColor: st.color, fillOpacity: .05 }; },
+    onEachFeature: (f, l) => l.bindTooltip(`<b>${airName(f.properties)} ${AIR_STYLE[f.properties.CLASS].label}</b><br>${airRange(f.properties)}`, { sticky: true }),
+  }).addTo(airLayer);
+}
+function drawAir3d() {
+  if (!viewer || !S.airspace) return;
+  const C = window.Cesium;
+  air.feats.forEach(f => {
+    const p = f.properties, st = AIR_STYLE[p.CLASS], col = C.Color.fromCssColorString(st.color);
+    const lo = airFloor(p) == null ? baseH : airFloor(p) * FT, hi = (airCeil(p) || ((airFloor(p) || 0) + 2500)) * FT;
+    ringsOf(f.geometry).forEach(poly => {
+      const toPos = r => C.Cartesian3.fromDegreesArray(r.flatMap(([x, y]) => [x, y]));
+      viewer.entities.add({ name: `${airName(p)} ${st.label}`, description: `<p>${airRange(p)}</p>`,
+        polygon: { hierarchy: new C.PolygonHierarchy(toPos(poly[0]), poly.slice(1).map(h => new C.PolygonHierarchy(toPos(h)))),
+          height: lo, extrudedHeight: hi, material: col.withAlpha(.07), outline: false } });
+      [lo, hi].forEach(h => viewer.entities.add({ polyline: { positions: C.Cartesian3.fromDegreesArrayHeights(poly[0].flatMap(([x, y]) => [x, y, h])), width: h === hi ? 2 : 1.5,
+        material: st.dash ? new C.PolylineDashMaterialProperty({ color: col, dashLength: 24 }) : col.withAlpha(h === hi ? 1 : .7) } }));
+    });
+  });
+}
+// ---------- Landing facilities (FAA NASR APT_BASE, bundled in data/facilities.js) ----------
+const FAC_TYPES = { A: ["Airport", ""], H: ["Heliport", "H"], C: ["Seaplane base", "S"], G: ["Gliderport", "G"], U: ["Ultralight park", "U"], B: ["Balloonport", "B"] };
+const fac = { list: [], key: "", script: null, failed: false };
+const facLayer = L.layerGroup().addTo(map);
+if (!S.facTypes) S.facTypes = "AHCGUB";
+function loadFacData() {
+  if (window.FACILITIES) return Promise.resolve();
+  if (fac.script) return fac.script;
+  fac.script = new Promise((res, rej) => {
+    const el = document.createElement("script"); el.src = "data/facilities.js";
+    el.onload = res; el.onerror = () => { fac.script = null; rej(new Error("facility data did not load")); };
+    document.head.appendChild(el);
+  });
+  return fac.script;
+}
+const milesBetween = (la1, lo1, la2, lo2) => {
+  const r = Math.PI / 180, a = Math.sin((la2 - la1) * r / 2) ** 2 + Math.cos(la1 * r) * Math.cos(la2 * r) * Math.sin((lo2 - lo1) * r / 2) ** 2;
+  return 3958.8 * 2 * Math.asin(Math.sqrt(a));
+};
+async function loadFac() {
+  $("facFoot").textContent = "Loading airports and heliports…";
+  try { await loadFacData(); fac.failed = false; } catch (e) { fac.list = []; fac.failed = true; return; }
+  const box = [S.lon - 0.95, S.lat - 0.75, S.lon + 0.95, S.lat + 0.75];
+  fac.list = FACILITIES.rows.filter(r => r[5] > box[0] && r[5] < box[2] && r[4] > box[1] && r[4] < box[3])
+    .map(r => ({ id: r[0], name: titleCase(r[1]), city: titleCase(r[2]), state: r[3], lat: r[4], lon: r[5], elev: r[6], type: r[7], use: r[8], tower: r[9] }));
+  fac.key = `${S.lat.toFixed(4)},${S.lon.toFixed(4)}`;
+}
+const facShown = () => fac.list.filter(f => S.facTypes.includes(f.type)).map(f => ({ ...f, mi: milesBetween(S.lat, S.lon, f.lat, f.lon) })).sort((a, b) => a.mi - b.mi);
+const facLabel = f => `${FAC_TYPES[f.type][0]}, ${f.use === "PU" ? "public" : "private"} use${f.tower ? ", control tower" : ""}`;
+const fmtMi = mi => mi < 10 ? mi.toFixed(1) : Math.round(mi).toString();
+function facFootText() {
+  if (fac.failed) return "Airport data didn't load. Check that the data folder is next to the planner file.";
+  const near = facShown().slice(0, 3);
+  return (near.length ? "Nearest: " + near.map(f => `${f.id} ${f.name} (${FAC_TYPES[f.type][0].toLowerCase()}, ${fmtMi(f.mi)} mi)`).join("; ") + ". " : "No facilities of these types within about 50 miles. ")
+    + `FAA NASR cycle ${FACILITIES.cycle}.`;
+}
+function drawFac2d() {
+  facLayer.clearLayers();
+  if (!S.facilities) return;
+  facShown().forEach(f => {
+    const letter = FAC_TYPES[f.type][1];
+    const ring = f.tower ? ";outline:2px solid #1c1c1e;outline-offset:1.5px" : "";
+    const m = L.marker([f.lat, f.lon], { icon: L.divIcon({ className: "", html: `<div class="fac ${f.use === "PU" ? "pu" : "pr"}${letter ? "" : " dot"}" style="${ring}">${letter}</div>`, iconSize: [18, 18], iconAnchor: [9, 9] }), keyboard: false });
+    m.bindTooltip(`<b>${f.id} ${f.name}</b><br>${f.city}, ${f.state}<br>${facLabel(f)}<br>Elevation ${f.elev.toLocaleString("en-US")} ft · ${fmtMi(f.mi)} mi from the pad`, { direction: "top", offset: [0, -10] });
+    m.addTo(facLayer);
+  });
+}
+function drawFac3d() {
+  if (!viewer || !S.facilities) return;
+  const C = window.Cesium;
+  facShown().forEach(f => {
+    const pub = f.use === "PU";
+    viewer.entities.add({ name: `${f.id} ${f.name}`, description: `<p>${f.city}, ${f.state}<br>${facLabel(f)}<br>Elevation ${f.elev} ft · ${fmtMi(f.mi)} mi from the pad</p>`,
+      position: C.Cartesian3.fromDegrees(f.lon, f.lat, f.elev * FT + 15),
+      point: { pixelSize: 9, color: pub ? C.Color.fromCssColorString("#1c1c1e") : C.Color.WHITE, outlineColor: pub ? C.Color.WHITE : C.Color.fromCssColorString("#1c1c1e"), outlineWidth: 2, disableDepthTestDistance: Number.POSITIVE_INFINITY },
+      label: { text: `${FAC_TYPES[f.type][1] ? FAC_TYPES[f.type][1] + " · " : ""}${f.id}`, font: "600 12px -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif", fillColor: C.Color.WHITE,
+        outlineColor: C.Color.BLACK, outlineWidth: 3, style: C.LabelStyle.FILL_AND_OUTLINE, pixelOffset: new C.Cartesian2(0, -14), verticalOrigin: C.VerticalOrigin.BOTTOM,
+        distanceDisplayCondition: new C.DistanceDisplayCondition(0, 12000), disableDepthTestDistance: Number.POSITIVE_INFINITY } });
+  });
+}
+async function refreshFac() {
+  $("facTypesCell").hidden = !S.facilities;
+  if (S.facilities) { await loadFac(); $("facFoot").textContent = facFootText(); }
+  else $("facFoot").textContent = "From the FAA NASR 28-day airport data.";
+  drawFac2d(); renderLegend();
+  if (mode3d && viewer) render3d(false);
+}
+$("facOn").checked = !!S.facilities;
+document.querySelectorAll("#facTypes button").forEach(b => b.setAttribute("aria-pressed", String([...b.dataset.t].some(t => S.facTypes.includes(t)))));
+$("facOn").addEventListener("change", () => { S.facilities = $("facOn").checked; saveState(); refreshFac(); });
+$("facTypes").addEventListener("click", e => {
+  const b = e.target.closest("button[data-t]"); if (!b) return;
+  b.setAttribute("aria-pressed", String(b.getAttribute("aria-pressed") !== "true"));
+  S.facTypes = [...document.querySelectorAll("#facTypes button[aria-pressed=true]")].map(x => x.dataset.t).join("");
+  saveState(); $("facFoot").textContent = facFootText(); drawFac2d(); renderLegend(); if (mode3d && viewer) render3d(false);
+});
+function saveState() { try { localStorage.setItem("vsp-state", JSON.stringify(S)); } catch (e) {} }
+
+function renderLegend() {
+  const airRows = S.airspace ? ["B", "C", "D"].filter(c => air.feats.some(f => f.properties.CLASS === c))
+    .map(c => `<div><span class="sw" style="background:transparent;box-shadow:inset 0 0 0 2px ${AIR_STYLE[c].color}${AIR_STYLE[c].dash ? ";border:1px dashed #fff" : ""}"></span>${AIR_STYLE[c].label}</div>`) : [];
+  const facRows = S.facilities ? [`<div><span class="sw" style="background:#1c1c1e;border-radius:50%"></span>Public use facility</div>`, `<div><span class="sw" style="background:#fff;border-radius:50%;box-shadow:inset 0 0 0 1.5px #1c1c1e"></span>Private use facility</div>`] : [];
+  $("legend").innerHTML = LEG.map(([k, t]) => `<div><span class="sw" style="background:${COLORS[k]}"></span>${t}</div>`).concat(airRows, facRows).join("");
+}
+async function refreshAir() {
+  if (S.airspace) { await loadAir(); $("airFoot").textContent = airFootText(); }
+  else $("airFoot").textContent = "From the FAA NASR 28-day airspace data.";
+  drawAir2d(); renderLegend(); if (design) results();
+  if (mode3d && viewer) render3d(false);
+}
+$("airOn").checked = !!S.airspace;
+$("airOn").addEventListener("change", () => {
+  S.airspace = $("airOn").checked;
+  try { localStorage.setItem("vsp-state", JSON.stringify(S)); } catch (e) {}
+  refreshAir();
+});
 
 map.on("click", e => { $("lat").value = e.latlng.lat.toFixed(6); $("lon").value = e.latlng.lng.toFixed(6); update(); lookupElev(); });
 centerMarker.on("dragend", e => { const p = e.target.getLatLng(); $("lat").value = p.lat.toFixed(6); $("lon").value = p.lng.toFixed(6); update(); lookupElev(); });
@@ -1064,10 +1328,10 @@ async function render3d(fly) {
   const prj = makeProjector(S.lat, S.lon);
   const deckFt = design.elevated ? +S.deck : 0;
   viewer.entities.removeAll();
-  const alpha = { tlof: .85, fato: .3, safety: 0, hpz: .3, dca: .1, approach: .28, transitional: .2 };
-  ["dca", "hpz", "safety", "fato", "tlof", "transitional", "approach"].forEach(el => design.features.filter(f => f.element === el).forEach(f => {
-    const col = C.Color.fromCssColorString(COLORS[el]);
-    const line = el === "tlof" ? C.Color.fromCssColorString("#1c1c1e") : col;
+  const alpha = { marking: 1, tlof: .85, fato: .3, safety: 0, hpz: .3, dca: .1, approach: .28, transitional: .2 };
+  ["dca", "hpz", "safety", "fato", "tlof", "marking", "transitional", "approach"].forEach(el => design.features.filter(f => f.element === el).forEach(f => {
+    const col = C.Color.fromCssColorString(el === "marking" ? "#ffffff" : el === "tlof" ? "#e5e5ea" : COLORS[el]);
+    const line = el === "tlof" || el === "marking" ? C.Color.fromCssColorString("#1c1c1e") : col;
     const lonlat = f.ring.map(([x, y, h]) => { const [la, lo] = prj.toLL(x, y); return [lo, la, h]; });
     const desc = `<table class="cesium-infoBox-defaultTable">${Object.entries(f.props).map(([k, v]) => `<tr><th>${k.replace(/_/g, " ")}</th><td>${v}</td></tr>`).join("")}</table>`;
     if (f.alt === "ground" || (f.alt === "deck" && !design.elevated)) {
@@ -1089,6 +1353,7 @@ async function render3d(fly) {
       label: { ...pill(`Path ${s.label} · ${s.slope}:1 · ${Math.round(s.endHeight)} ft`, COLORS.approach), pixelOffset: new C.Cartesian2(0, -14) } });
   });
   viewer.entities.add({ position: C.Cartesian3.fromDegrees(S.lon, S.lat, baseH + deckFt * FT), label: { ...pill(S.name || "Vertiport", "#1c1c1e"), pixelOffset: new C.Cartesian2(0, -18) } });
+  drawAir3d(); drawFac3d();
   $("camPaths").innerHTML = design.surfaces.map((s, i) => `<button data-final="${i}" aria-pressed="false" title="Pilot's view on final, from the outer end of the surface">Final ${s.label}</button>`).join("");
   if (fly) flyOverview();
 }
