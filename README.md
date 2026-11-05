@@ -10,6 +10,8 @@ The planner follows FAA Draft Advisory Circular 150/5390-4, *Vertical Flight Air
 
 It runs in a web browser. There is nothing to install and no account to create.
 
+Watch the 7-minute walkthrough on YouTube: https://youtu.be/CsUHH2hGvCI
+
 The FAA is taking comments on the draft until January 11, 2027 (vertiports@faa.gov). This tool will need updating when the final version is published.
 
 ## Open the planner
