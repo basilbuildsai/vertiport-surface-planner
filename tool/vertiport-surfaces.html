@@ -1,160 +1,219 @@
 <!doctype html>
 <!-- Vertiport Surface Planner. Copyright 2026 Basil Yap. PolyForm Noncommercial License 1.0.0: https://polyformproject.org/licenses/noncommercial/1.0.0
-     Required Notice: Copyright 2026 Basil Yap (https://github.com/basilbuildsai). Commercial licensing: github.com/basilbuildsai -->
+     Required Notice: Copyright 2026 Basil Yap (https://github.com/basilbuildsai) -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Vertiport Surface Planner</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23111114'/%3E%3Crect x='12' y='12' width='40' height='40' rx='3' fill='none' stroke='%23ffcc00' stroke-width='3.5'/%3E%3Cpath d='M24 21v22M40 21v22M24 32h16' stroke='%23fff' stroke-width='5.5'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <style>
-/* Layout: full-bleed map; a frosted card panel floats on the left; map controls float in a HUD to its right. Stacks on phones. */
+/* Layout: full-bleed map; a translucent sidebar (Apple "inset grouped" lists) floats on the left; map controls float to its right.
+   Spacing on an 8 pt grid; macOS type scale; Apple system colors. */
 :root {
-  --ground: #e9ebef;          /* behind the map */
-  --glass: rgba(255,255,255,.78);
-  --card: #ffffff;
-  --fill: #f2f2f5;            /* inputs, quiet buttons */
-  --hair: rgba(0,0,0,.08);
-  --ink: #1d1d1f;
-  --ink2: #6e6e73;
-  --ink3: #a1a1a6;
-  --blue: #0a84ff;
-  --blue-soft: rgba(10,132,255,.1);
-  --orange: #ff9500;
-  --red: #ff3b30;
-  --green: #30c48d;
-  --c-tlof: #ffffff;
-  --c-fato: #ffb300;
-  --c-safety: #ff7a00;
-  --c-hpz: #ff3b30;
-  --c-dca: #af52de;
-  --c-app: #0a84ff;
-  --c-trans: #30c48d;
-  --shadow: 0 1px 2px rgba(0,0,0,.06), 0 8px 28px rgba(0,0,0,.10);
-  --shadow-sm: 0 1px 2px rgba(0,0,0,.08), 0 3px 10px rgba(0,0,0,.08);
-  --r-lg: 22px; --r-md: 14px; --r-sm: 10px;
-  --f-ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", "Segoe UI", Roboto, Arial, sans-serif;
-  --f-num: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+  --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 20px; --s6: 24px; --s8: 32px;
+  --label: rgba(0,0,0,.88);
+  --label2: rgba(60,60,67,.62);
+  --label3: rgba(60,60,67,.36);
+  --sep: rgba(60,60,67,.16);
+  --grouped: #f2f2f7;          /* systemGroupedBackground */
+  --cell: #ffffff;             /* secondarySystemGroupedBackground */
+  --fill: rgba(118,118,128,.12);
+  --fill2: rgba(118,118,128,.08);
+  --material: rgba(246,246,248,.82);
+  --hud: rgba(255,255,255,.82);
+  --blue: #007aff; --green: #34c759; --orange: #ff9500; --red: #ff3b30; --purple: #af52de; --yellow: #ffcc00; --teal: #30b0c7;
+  --map-bg: #e8e8ed;
+  --shadow-1: 0 0 0 .5px rgba(0,0,0,.06), 0 1px 3px rgba(0,0,0,.08);
+  --shadow-2: 0 0 0 .5px rgba(0,0,0,.08), 0 8px 24px rgba(0,0,0,.12);
+  --shadow-3: 0 0 0 .5px rgba(0,0,0,.1), 0 20px 50px rgba(0,0,0,.22);
+  --r-win: 16px; --r-grp: 10px; --r-ctl: 7px;
+  --f: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro", "Helvetica Neue", "Segoe UI", Roboto, Arial, sans-serif;
+  --f-num: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
   color-scheme: light;
 }
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
 html, body { height: 100%; margin: 0; }
-body { background: var(--ground); color: var(--ink); font: 14px/1.4 var(--f-ui); -webkit-font-smoothing: antialiased; }
-button, input, select { font: inherit; color: inherit; }
+body { background: var(--map-bg); color: var(--label); font: 13px/1.38 var(--f); -webkit-font-smoothing: antialiased; letter-spacing: -.003em; }
+button, input, select { font: inherit; color: inherit; letter-spacing: inherit; }
+a { color: var(--blue); text-decoration: none; }
+a:hover { text-decoration: underline; }
+:focus-visible { outline: 3px solid rgba(0,122,255,.5); outline-offset: 1px; border-radius: 6px; }
 
 .app { position: relative; height: 100%; overflow: hidden; }
 .stage { position: absolute; inset: 0; }
-#map, #globe { position: absolute; inset: 0; background: var(--ground); }
+#map, #globe { position: absolute; inset: 0; background: var(--map-bg); }
 
-/* Panel */
-.panel { position: absolute; z-index: 700; top: 16px; bottom: 16px; left: max(16px, env(safe-area-inset-left, 0px)); width: 372px;
-  background: var(--glass); backdrop-filter: blur(24px) saturate(1.6); -webkit-backdrop-filter: blur(24px) saturate(1.6);
-  border: 1px solid rgba(255,255,255,.7); border-radius: var(--r-lg); box-shadow: var(--shadow);
-  overflow-y: auto; padding: 18px 14px 22px; display: flex; flex-direction: column; gap: 14px; scrollbar-width: thin; }
-.brand { display: flex; gap: 12px; align-items: center; padding: 0 4px 2px; }
-.mark { width: 44px; height: 44px; flex: none; border-radius: 12px; background: var(--ink); display: grid; place-items: center; }
-.brand h1 { margin: 0; font-size: 17px; font-weight: 600; letter-spacing: -.01em; }
-.brand p { margin: 1px 0 0; color: var(--ink2); font-size: 12.5px; }
-.card { background: var(--card); border-radius: var(--r-md); box-shadow: 0 1px 2px rgba(0,0,0,.05); padding: 14px; display: flex; flex-direction: column; gap: 10px; }
-.card > h2 { margin: 0; font-size: 13px; font-weight: 600; color: var(--ink); display: flex; justify-content: space-between; align-items: center; }
-.card > h2 small { font-weight: 400; color: var(--ink3); font-size: 12px; }
-.row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
-label.f { display: flex; flex-direction: column; gap: 4px; font-size: 11.5px; color: var(--ink2); min-width: 0; }
-input[type=number], input[type=text], select { width: 100%; background: var(--fill); border: 1px solid transparent; border-radius: var(--r-sm); padding: 8px 10px; font-size: 14px; outline: none; transition: border-color .15s, background .15s; }
-input[type=number] { font-family: var(--f-num); font-size: 13px; }
-input:focus, select:focus { background: #fff; border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-soft); }
-select { appearance: none; -webkit-appearance: none; padding-right: 26px; background-image: linear-gradient(45deg, transparent 50%, var(--ink2) 50%), linear-gradient(135deg, var(--ink2) 50%, transparent 50%); background-position: calc(100% - 14px) 52%, calc(100% - 9px) 52%; background-size: 5px 5px; background-repeat: no-repeat; }
-.search { display: flex; gap: 8px; }
-.search input { padding-left: 32px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='none' stroke='%236e6e73' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='6' cy='6' r='4.5'/%3E%3Cpath d='M9.5 9.5 13 13'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: 11px 50%; }
-.toggle { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 13px; padding: 2px 0; cursor: pointer; }
-.toggle input { appearance: none; -webkit-appearance: none; width: 38px; height: 23px; border-radius: 12px; background: #e3e3e8; position: relative; flex: none; cursor: pointer; transition: background .2s; margin: 0; }
-.toggle input::after { content: ""; position: absolute; top: 2px; left: 2px; width: 19px; height: 19px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.25); transition: transform .2s; }
-.toggle input:checked { background: var(--green); }
-.toggle input:checked::after { transform: translateX(15px); }
-.btn { border: none; border-radius: var(--r-sm); padding: 8px 12px; background: var(--fill); font-weight: 500; font-size: 13px; cursor: pointer; transition: background .15s, transform .05s; }
-.btn:hover { background: #e8e8ed; }
-.btn:active { transform: scale(.98); }
-.btn.primary { background: var(--blue); color: #fff; }
-.btn.primary:hover { background: #0077ed; }
-.btn.link { background: none; color: var(--blue); padding: 4px 2px; }
-.btns { display: flex; gap: 8px; flex-wrap: wrap; }
-.btns .btn { flex: 1; }
-:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
-.hint { margin: 0; font-size: 12px; color: var(--ink2); }
-.status { font-size: 12px; color: var(--ink2); min-height: 1em; }
-.seg-in { display: flex; background: var(--fill); border-radius: var(--r-sm); padding: 2px; gap: 2px; }
-.seg-in button { flex: 1; border: none; background: transparent; border-radius: 8px; padding: 6px 4px; font-size: 13px; cursor: pointer; color: var(--ink2); }
-.seg-in button[aria-pressed="true"] { background: #fff; color: var(--ink); box-shadow: var(--shadow-sm); font-weight: 500; }
+/* ---------- Sidebar ---------- */
+.side { position: absolute; z-index: 700; top: var(--s2); bottom: var(--s2); left: max(var(--s2), env(safe-area-inset-left, 0px)); width: 360px;
+  background: var(--material); backdrop-filter: blur(30px) saturate(1.8); -webkit-backdrop-filter: blur(30px) saturate(1.8);
+  border-radius: var(--r-win); box-shadow: var(--shadow-2); display: flex; flex-direction: column; overflow: hidden; }
+.side-head { display: flex; align-items: center; gap: var(--s3); padding: var(--s4) var(--s4) var(--s3); border-bottom: .5px solid var(--sep); }
+.appicon { width: 36px; height: 36px; flex: none; border-radius: 9px; background: linear-gradient(180deg, #2b2b30, #111114); display: grid; place-items: center; box-shadow: inset 0 0 0 .5px rgba(255,255,255,.15); }
+.side-head h1 { margin: 0; font-size: 15px; font-weight: 600; letter-spacing: -.01em; line-height: 1.2; }
+.side-head p { margin: 2px 0 0; font-size: 11px; color: var(--label2); }
+.side-head .grow { flex: 1; min-width: 0; }
+.iconbtn { width: 28px; height: 28px; border-radius: 50%; border: none; background: var(--fill); display: grid; place-items: center; cursor: pointer; color: var(--label); flex: none; }
+.iconbtn:hover { background: rgba(118,118,128,.2); }
+.iconbtn svg { width: 15px; height: 15px; }
+.side-body { flex: 1; overflow-y: auto; padding: var(--s2) var(--s4) var(--s6); scrollbar-width: thin; }
 
-.path { border: 1px solid var(--hair); border-radius: 12px; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
-.path .top { display: flex; align-items: center; gap: 8px; }
-.path .num { width: 22px; height: 22px; border-radius: 50%; background: var(--blue); color: #fff; font-size: 12px; font-weight: 600; display: grid; place-items: center; }
-.path .sub { font-size: 12px; color: var(--ink2); flex: 1; }
-.path .x { border: none; background: none; color: var(--ink3); font-size: 18px; line-height: 1; cursor: pointer; padding: 0 4px; }
+/* Inset grouped list */
+.sec { margin-top: var(--s5); }
+.sec-h { display: flex; align-items: baseline; justify-content: space-between; padding: 0 var(--s3) 6px; font-size: 12px; font-weight: 600; color: var(--label2); }
+.sec-h small { font-weight: 400; font-size: 11px; }
+.grp { background: var(--cell); border-radius: var(--r-grp); box-shadow: var(--shadow-1); overflow: hidden; }
+.grp + .grp { margin-top: var(--s2); }
+.cell { position: relative; display: flex; align-items: center; gap: var(--s3); min-height: 40px; padding: 6px var(--s3); }
+.cell + .cell::before { content: ""; position: absolute; top: 0; left: var(--s3); right: 0; border-top: .5px solid var(--sep); }
+.cell.stack { flex-direction: column; align-items: stretch; gap: var(--s2); padding-block: 10px; }
+.cell .lab { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; }
+.cell .lab .sub { display: block; font-size: 11px; color: var(--label2); }
+.foot { padding: 6px var(--s3) 0; font-size: 11px; color: var(--label2); line-height: 1.4; }
+.foot + .grp, .grp + .foot { }
 
-.res { display: flex; flex-direction: column; }
-.res .r { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; padding: 9px 0; border-top: 1px solid var(--hair); }
-.res .r:first-child { border-top: none; padding-top: 0; }
-.res .t { font-size: 13.5px; display: flex; align-items: center; gap: 8px; min-width: 0; }
-.res .v { font-family: var(--f-num); font-size: 13.5px; font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
-.res .rule { grid-column: 1 / -1; font-size: 11.5px; color: var(--ink2); padding-left: 18px; }
-.res .r.plain .rule { padding-left: 0; }
-.dot { width: 10px; height: 10px; border-radius: 3px; flex: none; box-shadow: inset 0 0 0 1px rgba(0,0,0,.18); }
-.big { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.big div { background: var(--fill); border-radius: 12px; padding: 10px 12px; }
-.big b { display: block; font: 600 22px/1.1 var(--f-ui); letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
-.big span { font-size: 11.5px; color: var(--ink2); }
-.msgs { display: flex; flex-direction: column; gap: 6px; }
-.msg { display: flex; gap: 8px; font-size: 12.5px; line-height: 1.35; padding: 9px 11px; border-radius: 12px; background: #fff7eb; color: #6b4300; }
-.msg::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--orange); flex: none; margin-top: 5px; }
-.msg.info { background: #eef5ff; color: #0b3a73; }
-.msg.info::before { background: var(--blue); }
-.msg.bad { background: #fff0ef; color: #7a1610; }
-.msg.bad::before { background: var(--red); }
+/* Info button */
+.info { width: 18px; height: 18px; flex: none; border: none; padding: 0; border-radius: 50%; background: transparent; color: var(--label3); cursor: pointer; display: inline-grid; place-items: center; }
+.info:hover, .info[aria-expanded="true"] { color: var(--blue); }
+.info svg { width: 15px; height: 15px; }
 
-/* HUD over the map, right of the panel */
-.hud { position: absolute; z-index: 650; top: 0; bottom: 0; right: 0; left: 404px; pointer-events: none; }
+/* Inline fields */
+.val { display: flex; align-items: center; gap: 6px; flex: none; }
+.val input[type=number], .val input[type=text].short { width: 92px; border: none; background: var(--fill2); border-radius: 6px; padding: 5px 8px; text-align: right; font-variant-numeric: tabular-nums; outline: none; }
+.val input:focus { background: #fff; box-shadow: 0 0 0 3px rgba(0,122,255,.35); }
+.unit { color: var(--label2); font-size: 12px; min-width: 18px; }
+.fld { width: 100%; border: none; background: var(--fill2); border-radius: 8px; padding: 7px 10px; outline: none; }
+.fld:focus { background: #fff; box-shadow: 0 0 0 3px rgba(0,122,255,.35); }
+.search { position: relative; }
+.search .fld { padding-left: 30px; }
+.search svg { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); width: 14px; height: 14px; color: var(--label2); pointer-events: none; }
+select.pop { appearance: none; -webkit-appearance: none; border: none; background: transparent; color: var(--label2); text-align: right; padding: 4px 18px 4px 4px; cursor: pointer; max-width: 200px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='12' fill='none' stroke='%233c3c43' stroke-opacity='.6' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1.5 4.5 4 2l2.5 2.5M1.5 7.5 4 10l2.5-2.5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 2px center; }
+select.pop:focus { outline: none; color: var(--blue); }
+
+/* Switch */
+.switch { appearance: none; -webkit-appearance: none; width: 38px; height: 22px; border-radius: 11px; background: rgba(120,120,128,.24); position: relative; flex: none; cursor: pointer; transition: background .2s; margin: 0; }
+.switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.2), 0 0 0 .5px rgba(0,0,0,.04); transition: transform .2s; }
+.switch:checked { background: var(--green); }
+.switch:checked::after { transform: translateX(16px); }
+
+/* Segmented */
+.segc { display: inline-flex; background: var(--fill); border-radius: 8px; padding: 2px; gap: 0; flex: none; }
+.segc.full { display: flex; }
+.segc button { flex: 1; border: none; background: transparent; border-radius: 6px; padding: 4px 12px; font-size: 12px; font-weight: 500; cursor: pointer; color: var(--label); white-space: nowrap; position: relative; }
+.segc button[aria-pressed="true"] { background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.12), 0 0 0 .5px rgba(0,0,0,.04); }
+
+/* Buttons */
+.btn { border: none; border-radius: var(--r-ctl); padding: 6px 14px; min-height: 30px; background: var(--fill); font-size: 13px; font-weight: 500; cursor: pointer; }
+.btn:hover { background: rgba(118,118,128,.2); }
+.btn:active { opacity: .8; }
+.btn.blue { background: var(--blue); color: #fff; }
+.btn.blue:hover { background: #0062d1; }
+.btn.plain { background: none; color: var(--blue); padding-inline: 4px; }
+.btn.plain:hover { background: none; text-decoration: underline; }
+.btnrow { display: flex; gap: var(--s2); }
+.btnrow .btn { flex: 1; }
+.status { font-size: 11px; color: var(--label2); padding: 0 var(--s3); min-height: 15px; margin-top: 6px; }
+
+/* Paths */
+.ptitle { font-weight: 600; display: flex; align-items: center; gap: var(--s2); }
+.pnum { width: 20px; height: 20px; border-radius: 50%; background: var(--blue); color: #fff; font-size: 11px; font-weight: 600; display: grid; place-items: center; }
+.pdir { margin-left: auto; font-weight: 400; color: var(--label2); font-size: 12px; }
+.del { border: none; background: none; color: var(--red); font-size: 12px; cursor: pointer; padding: 2px 0 2px 8px; }
+
+/* Results */
+.tiles { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s2); }
+.tile { background: var(--cell); border-radius: var(--r-grp); box-shadow: var(--shadow-1); padding: 10px var(--s3) var(--s3); }
+.tile .k { font-size: 11px; color: var(--label2); }
+.tile .n { font-size: 22px; font-weight: 600; letter-spacing: -.02em; font-variant-numeric: tabular-nums; line-height: 1.25; }
+.tile .n small { font-size: 13px; font-weight: 500; color: var(--label2); margin-left: 2px; }
+.tile .m { font-size: 11px; color: var(--label2); }
+.rv { text-align: right; font-variant-numeric: tabular-nums; flex: 0 1 auto; max-width: 52%; color: var(--label); }
+.rv small { display: block; font-size: 11px; color: var(--label2); }
+.sw { width: 10px; height: 10px; border-radius: 3px; flex: none; box-shadow: inset 0 0 0 .5px rgba(0,0,0,.25); }
+
+/* Notices */
+.note { display: flex; gap: 10px; align-items: flex-start; flex: 1; min-width: 0; }
+.note .ic { width: 18px; height: 18px; border-radius: 50%; flex: none; display: grid; place-items: center; color: #fff; font-size: 11px; font-weight: 700; margin-top: 1px; }
+.note.n-info .ic { background: var(--blue); }
+.note.n-warn .ic { background: var(--orange); }
+.note.n-bad .ic { background: var(--red); }
+.note p { margin: 0; font-size: 12px; line-height: 1.4; }
+
+.legal { margin-top: var(--s5); padding: 0 var(--s3); font-size: 11px; color: var(--label2); line-height: 1.45; }
+
+/* ---------- HUD ---------- */
+.hud { position: absolute; z-index: 650; top: 0; bottom: 0; right: 0; left: 376px; pointer-events: none; }
 .hud > * { pointer-events: auto; }
-.topbar { position: absolute; top: 16px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; }
-.seg { display: flex; padding: 3px; gap: 2px; background: var(--glass); backdrop-filter: blur(20px) saturate(1.6); -webkit-backdrop-filter: blur(20px) saturate(1.6); border-radius: 12px; box-shadow: var(--shadow-sm); border: 1px solid rgba(255,255,255,.7); }
-.seg button { border: none; background: transparent; border-radius: 9px; padding: 7px 14px; font-size: 13px; font-weight: 500; color: var(--ink2); cursor: pointer; white-space: nowrap; }
-.seg button[aria-pressed="true"] { background: #fff; color: var(--ink); box-shadow: var(--shadow-sm); }
-.stack { position: absolute; right: max(16px, env(safe-area-inset-right, 0px)); top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 8px; }
-.stack .grp { display: flex; flex-direction: column; background: var(--glass); backdrop-filter: blur(20px) saturate(1.6); -webkit-backdrop-filter: blur(20px) saturate(1.6); border-radius: 14px; box-shadow: var(--shadow-sm); border: 1px solid rgba(255,255,255,.7); overflow: hidden; }
-.stack button { width: 44px; height: 44px; border: none; background: transparent; display: grid; place-items: center; cursor: pointer; color: var(--ink); touch-action: none; user-select: none; -webkit-user-select: none; }
-.stack button + button { border-top: 1px solid var(--hair); }
-.stack button:hover { background: rgba(255,255,255,.7); }
-.stack button:active { background: var(--blue-soft); color: var(--blue); }
-.stack svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-.toast { position: absolute; top: 16px; right: max(16px, env(safe-area-inset-right, 0px)); width: 300px; max-width: calc(100% - 32px); background: var(--glass); backdrop-filter: blur(20px) saturate(1.6); -webkit-backdrop-filter: blur(20px) saturate(1.6); border-radius: 16px; box-shadow: var(--shadow); border: 1px solid rgba(255,255,255,.7); padding: 12px 14px; display: flex; flex-direction: column; gap: 4px; }
-.toast .h { display: flex; justify-content: space-between; font-size: 12px; color: var(--ink2); }
-.toast .h b { font-weight: 500; color: var(--ink); display: flex; align-items: center; gap: 6px; }
-.toast .h b::after { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--blue); }
-.toast p { margin: 0; font-size: 13.5px; }
-.legend { position: absolute; top: 16px; left: 16px; background: var(--glass); backdrop-filter: blur(20px) saturate(1.6); -webkit-backdrop-filter: blur(20px) saturate(1.6); border-radius: 14px; box-shadow: var(--shadow-sm); border: 1px solid rgba(255,255,255,.7); padding: 10px 12px; font-size: 12px; display: grid; gap: 5px; pointer-events: none; }
-.legend div { display: flex; align-items: center; gap: 8px; }
-.views { position: absolute; bottom: 34px; left: 50%; transform: translateX(-50%); max-width: calc(100% - 32px); overflow-x: auto; }
+.mat { background: var(--hud); backdrop-filter: blur(24px) saturate(1.8); -webkit-backdrop-filter: blur(24px) saturate(1.8); box-shadow: var(--shadow-2); }
+.topbar { position: absolute; top: var(--s4); left: 50%; transform: translateX(-50%); display: flex; gap: var(--s2); }
+.topbar .segc { background: var(--hud); backdrop-filter: blur(24px) saturate(1.8); -webkit-backdrop-filter: blur(24px) saturate(1.8); box-shadow: var(--shadow-2); border-radius: 9px; padding: 3px; }
+.topbar .segc button { padding: 5px 16px; font-size: 13px; }
+.ctl { position: absolute; right: max(var(--s4), env(safe-area-inset-right, 0px)); top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: var(--s2); }
+.ctl .g { display: flex; flex-direction: column; border-radius: 12px; overflow: hidden; }
+.ctl button { width: 44px; height: 44px; border: none; background: transparent; display: grid; place-items: center; cursor: pointer; color: var(--label); touch-action: none; user-select: none; -webkit-user-select: none; }
+.ctl button + button { border-top: .5px solid var(--sep); }
+.ctl button:hover { background: rgba(255,255,255,.6); }
+.ctl button:active { color: var(--blue); }
+.ctl svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.toast { position: absolute; top: var(--s4); right: max(var(--s4), env(safe-area-inset-right, 0px)); width: 296px; max-width: calc(100% - 32px); border-radius: 14px; padding: 10px 14px 12px; display: flex; flex-direction: column; gap: 2px; }
+.toast .h { display: flex; justify-content: space-between; font-size: 11px; color: var(--label2); }
+.toast .h b { font-weight: 600; color: var(--label); }
+.toast p { margin: 0; font-size: 13px; }
+.legend { position: absolute; left: var(--s4); bottom: 28px; border-radius: 12px; padding: 10px 12px; font-size: 11px; display: grid; gap: 4px; pointer-events: none; }
+.legend div { display: flex; align-items: center; gap: var(--s2); }
+.views { position: absolute; bottom: 28px; left: 50%; transform: translateX(-50%); max-width: calc(100% - 32px); overflow-x: auto; }
+.views.segc { background: var(--hud); backdrop-filter: blur(24px) saturate(1.8); -webkit-backdrop-filter: blur(24px) saturate(1.8); box-shadow: var(--shadow-2); border-radius: 9px; padding: 3px; }
+.views.segc button { padding: 5px 14px; font-size: 13px; }
 
-/* Map markers and tooltips */
-.handle { width: 30px; height: 30px; border-radius: 50%; background: #fff; color: var(--blue); font: 600 13px/30px var(--f-ui); text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,.3); cursor: grab; }
-.center-pin { width: 22px; height: 22px; border-radius: 50%; background: var(--blue); border: 4px solid #fff; box-shadow: 0 2px 8px rgba(0,0,0,.35); cursor: move; }
-.leaflet-tooltip { font-family: var(--f-ui); border: none; border-radius: 10px; box-shadow: var(--shadow-sm); padding: 7px 10px; color: var(--ink); }
-.leaflet-container { font-family: var(--f-ui); background: var(--ground); }
-.leaflet-control-attribution { border-radius: 8px 0 0 0; background: rgba(255,255,255,.75) !important; font-size: 10px; }
-.cesium-viewer-bottom { left: 0; }
-.cesium-infoBox { top: 96px; border-radius: 14px; overflow: hidden; background: rgba(255,255,255,.95); color: var(--ink); border: none; box-shadow: var(--shadow); }
-.cesium-infoBox-title { background: #fff; color: var(--ink); font-family: var(--f-ui); font-weight: 600; }
-.cesium-infoBox-close { color: var(--ink2); }
+/* Markers */
+.handle { width: 28px; height: 28px; border-radius: 50%; background: #fff; color: var(--blue); font: 600 12px/28px var(--f); text-align: center; box-shadow: 0 1px 4px rgba(0,0,0,.3), 0 0 0 .5px rgba(0,0,0,.1); cursor: grab; }
+.center-pin { width: 22px; height: 22px; border-radius: 50%; background: var(--blue); border: 3.5px solid #fff; box-shadow: 0 1px 6px rgba(0,0,0,.35); cursor: move; }
+.leaflet-tooltip { font-family: var(--f); font-size: 12px; border: none; border-radius: 8px; box-shadow: var(--shadow-2); padding: 6px 9px; color: var(--label); }
+.leaflet-container { font-family: var(--f); background: var(--map-bg); }
+.leaflet-control-attribution { border-radius: 6px 0 0 0; background: rgba(255,255,255,.7) !important; font-size: 10px; }
+.leaflet-control-scale { margin-left: 16px !important; margin-bottom: 8px !important; }
+.cesium-infoBox { top: 72px; border-radius: 12px; overflow: hidden; background: rgba(255,255,255,.96); color: var(--label); border: none; box-shadow: var(--shadow-2); }
+.cesium-infoBox-title { background: #fff; color: var(--label); font-family: var(--f); font-weight: 600; }
 
+/* ---------- Popover and sheets ---------- */
+.popover { position: fixed; z-index: 2000; width: 300px; max-width: calc(100vw - 24px); background: rgba(255,255,255,.97); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-radius: 12px; box-shadow: var(--shadow-3); padding: 14px 16px; font-size: 12.5px; line-height: 1.45; }
+.popover h3 { margin: 0 0 6px; font-size: 13px; font-weight: 600; }
+.popover p { margin: 0 0 8px; }
+.popover p:last-child, .popover ol:last-child, .popover ul:last-child { margin-bottom: 0; }
+.popover ol, .popover ul { margin: 0 0 8px; padding-left: 18px; }
+.popover li { margin: 2px 0; }
+.popover .src { color: var(--label2); font-size: 11px; }
+.scrim { position: fixed; inset: 0; z-index: 3000; background: rgba(0,0,0,.24); display: grid; place-items: center; padding: var(--s4); }
+.sheet { width: 520px; max-width: 100%; max-height: calc(100vh - 32px); overflow-y: auto; background: var(--grouped); border-radius: 14px; box-shadow: var(--shadow-3); }
+.sheet-h { position: sticky; top: 0; display: flex; align-items: center; justify-content: space-between; padding: var(--s4) var(--s5) var(--s3); background: rgba(242,242,247,.92); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); }
+.sheet-h h2 { margin: 0; font-size: 17px; font-weight: 600; }
+.sheet-b { padding: 0 var(--s5) var(--s5); }
+.sheet-b > p { margin: 0 0 var(--s3); color: var(--label2); }
+.steps { list-style: none; margin: 0; padding: 0; counter-reset: s; }
+.steps li { position: relative; padding: 10px var(--s3) 10px 44px; counter-increment: s; }
+.steps li::before { content: counter(s); position: absolute; left: var(--s3); top: 10px; width: 22px; height: 22px; border-radius: 50%; background: var(--blue); color: #fff; font-size: 12px; font-weight: 600; display: grid; place-items: center; }
+.steps li + li::after { content: ""; position: absolute; top: 0; left: 44px; right: 0; border-top: .5px solid var(--sep); }
+.steps b { display: block; font-weight: 600; }
+.steps span { color: var(--label2); font-size: 12px; }
+.srcs .cell { align-items: flex-start; padding-block: 10px; }
+.srcs .lab { flex-direction: column; align-items: flex-start; gap: 1px; }
+.tag { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 10px; white-space: nowrap; }
+.tag.ok { background: rgba(52,199,89,.15); color: #1f7a37; }
+.tag.opt { background: rgba(255,149,0,.15); color: #8a5300; }
+
+@media (min-width: 821px) { #globe { left: 376px; } .hud.g3d { } }
 @media (max-width: 820px) {
   .app { height: auto; overflow: visible; display: flex; flex-direction: column; }
   .stage { position: relative; height: 62vh; flex: none; }
-  .panel { position: static; width: auto; margin: -18px 0 0; border-radius: 22px 22px 0 0; box-shadow: 0 -4px 20px rgba(0,0,0,.08); background: #f5f5f7; overflow: visible; padding-left: max(14px, env(safe-area-inset-left, 0px)); padding-right: max(14px, env(safe-area-inset-right, 0px)); }
+  .side { position: static; width: auto; border-radius: 16px 16px 0 0; margin-top: -16px; box-shadow: 0 -4px 20px rgba(0,0,0,.08); background: var(--grouped); overflow: visible; }
+  .side-body { overflow: visible; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
   .hud { left: 0; bottom: 18px; }
   .legend { display: none; }
-  .toast { top: 64px; }
+  .toast { top: 60px; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
@@ -165,135 +224,181 @@ select { appearance: none; -webkit-appearance: none; padding-right: 26px; backgr
     <div id="map"></div>
     <div id="globe" hidden></div>
     <div class="hud">
-      <div class="legend" id="legend"></div>
       <div class="topbar">
-        <div class="seg" role="group" aria-label="View">
-          <button id="v2d" aria-pressed="true">2D</button>
-          <button id="v3d" aria-pressed="false">3D</button>
+        <div class="segc" role="group" aria-label="View">
+          <button id="v2d" aria-pressed="true">2D Map</button>
+          <button id="v3d" aria-pressed="false">3D View</button>
         </div>
-        <div class="seg" role="group" aria-label="Basemap">
+        <div class="segc" role="group" aria-label="Basemap">
           <button id="bSat" aria-pressed="true">Satellite</button>
-          <button id="bClean" aria-pressed="false">Clean</button>
+          <button id="bClean" aria-pressed="false">Light</button>
         </div>
       </div>
-      <div class="toast" id="toast" hidden>
-        <div class="h"><span id="toastTime"></span><b id="toastTag">3D view</b></div>
+      <div class="toast mat" id="toast" hidden>
+        <div class="h"><b id="toastTag">3D View</b><span id="toastTime"></span></div>
         <p id="toastText"></p>
       </div>
-      <div class="stack" id="stack">
-        <div class="grp">
-          <button data-cam="zoomIn" title="Zoom in" aria-label="Zoom in"><svg viewBox="0 0 18 18"><path d="M9 3v12M3 9h12"/></svg></button>
-          <button id="recenter" title="Center on the pad" aria-label="Center on the pad"><svg viewBox="0 0 18 18"><circle cx="9" cy="9" r="5"/><path d="M9 1.5v3M9 13.5v3M1.5 9h3M13.5 9h3"/></svg></button>
-          <button data-cam="zoomOut" title="Zoom out" aria-label="Zoom out"><svg viewBox="0 0 18 18"><path d="M3 9h12"/></svg></button>
+      <div class="ctl" id="stack">
+        <div class="g mat">
+          <button data-cam="zoomIn" title="Zoom in" aria-label="Zoom in"><svg viewBox="0 0 18 18"><path d="M9 3.5v11M3.5 9h11"/></svg></button>
+          <button data-cam="zoomOut" title="Zoom out" aria-label="Zoom out"><svg viewBox="0 0 18 18"><path d="M3.5 9h11"/></svg></button>
         </div>
-        <div class="grp" id="stack3d" hidden>
-          <button data-cam="rotL" title="Rotate left around the pad (hold)" aria-label="Rotate left"><svg viewBox="0 0 18 18"><path d="M4 6.5A6 6 0 1 1 3.2 11"/><path d="M3.5 2.5v4h4"/></svg></button>
-          <button data-cam="rotR" title="Rotate right around the pad (hold)" aria-label="Rotate right"><svg viewBox="0 0 18 18"><path d="M14 6.5A6 6 0 1 0 14.8 11"/><path d="M14.5 2.5v4h-4"/></svg></button>
-          <button data-cam="tiltUp" title="Tilt toward the horizon (hold)" aria-label="Tilt toward horizon"><svg viewBox="0 0 18 18"><path d="M4 11.5 9 6.5l5 5"/></svg></button>
-          <button data-cam="tiltDn" title="Tilt toward looking down (hold)" aria-label="Tilt down"><svg viewBox="0 0 18 18"><path d="M4 6.5 9 11.5l5-5"/></svg></button>
+        <div class="g mat">
+          <button id="recenter" title="Center on the pad" aria-label="Center on the pad"><svg viewBox="0 0 18 18"><path d="M15.5 2.5 2.5 8l6 1.5L10 15.5z"/></svg></button>
+        </div>
+        <div class="g mat" id="stack3d" hidden>
+          <button data-cam="rotL" title="Rotate left around the pad (hold)" aria-label="Rotate left"><svg viewBox="0 0 18 18"><path d="M4.2 6.2A5.8 5.8 0 1 1 3.3 11"/><path d="M3.6 2.8v3.8h3.8"/></svg></button>
+          <button data-cam="rotR" title="Rotate right around the pad (hold)" aria-label="Rotate right"><svg viewBox="0 0 18 18"><path d="M13.8 6.2A5.8 5.8 0 1 0 14.7 11"/><path d="M14.4 2.8v3.8h-3.8"/></svg></button>
+          <button data-cam="tiltUp" title="Tilt toward the horizon (hold)" aria-label="Tilt toward horizon"><svg viewBox="0 0 18 18"><path d="M4.5 11.5 9 7l4.5 4.5"/></svg></button>
+          <button data-cam="tiltDn" title="Tilt toward looking down (hold)" aria-label="Tilt down"><svg viewBox="0 0 18 18"><path d="M4.5 6.5 9 11l4.5-4.5"/></svg></button>
         </div>
       </div>
-      <div class="views seg" id="views" hidden role="group" aria-label="3D views">
+      <div class="views segc" id="views" hidden role="group" aria-label="3D views">
         <button id="camOverview" aria-pressed="false">Overview</button>
-        <button id="camTop" aria-pressed="false">Top down</button>
+        <button id="camTop" aria-pressed="false">Top Down</button>
         <span id="camPaths" style="display:contents"></span>
       </div>
+      <div class="legend mat" id="legend"></div>
     </div>
   </div>
 
-  <aside class="panel">
-    <div class="brand">
-      <div class="mark" aria-hidden="true">
-        <svg width="26" height="26" viewBox="0 0 26 26" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21 13 13l10 8"/><circle cx="13" cy="9" r="4"/><path d="M13 7.5v3M11.5 9h3" stroke="#0a84ff"/></svg>
+  <aside class="side" aria-label="Planner settings">
+    <div class="side-head">
+      <div class="appicon" aria-hidden="true">
+        <svg width="26" height="26" viewBox="0 0 26 26" fill="none"><rect x="2.5" y="2.5" width="21" height="21" rx="2" stroke="#ffcc00" stroke-width="1.8"/><path d="M9 7.5v11M17 7.5v11M9 13h8" stroke="#fff" stroke-width="2.6" stroke-linecap="square"/></svg>
       </div>
-      <div>
+      <div class="grow">
         <h1>Vertiport Surface Planner</h1>
-        <p>Draft AC 150/5390-4 · Oct 22, 2026</p>
+        <p>FAA Draft AC 150/5390-4 · Oct 22, 2026</p>
       </div>
+      <button class="iconbtn" id="helpBtn" title="Getting started" aria-label="Getting started"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M6 6.2a2.1 2.1 0 1 1 3 1.9c-.6.3-1 .8-1 1.4v.3"/><circle cx="8" cy="12.2" r=".6" fill="currentColor" stroke="none"/></svg></button>
     </div>
 
-    <div class="card">
-      <h2>Location</h2>
-      <div class="search">
-        <input id="q" type="text" placeholder="Search place or paste lat, lon" aria-label="Search">
-        <button class="btn" id="go">Find</button>
+    <div class="side-body">
+      <div class="sec">
+        <div class="sec-h">Location</div>
+        <div class="grp">
+          <div class="cell stack">
+            <div class="search"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="6" cy="6" r="4.4"/><path d="m9.4 9.4 3.1 3.1"/></svg>
+              <input class="fld" id="q" type="text" placeholder="Search an address or paste lat, lon" aria-label="Search an address or paste latitude, longitude"></div>
+          </div>
+          <div class="cell"><span class="lab">Latitude</span><span class="val"><input id="lat" type="number" step="0.000001" style="width:120px"><span class="unit">°</span></span></div>
+          <div class="cell"><span class="lab">Longitude</span><span class="val"><input id="lon" type="number" step="0.000001" style="width:120px"><span class="unit">°</span></span></div>
+          <div class="cell"><span class="lab">Ground elevation<button class="info" data-info="elev" aria-label="About ground elevation"></button></span>
+            <span class="val"><input id="elev" type="number" step="1"><span class="unit">ft</span></span></div>
+        </div>
+        <div class="status" id="status"></div>
+        <div class="foot">Click the map or drag the blue pin to move the pad. <button class="btn plain" id="elevBtn" style="font-size:11px;min-height:0;padding:0">Look up elevation</button></div>
       </div>
-      <div class="row">
-        <label class="f">Latitude<input id="lat" type="number" step="0.000001"></label>
-        <label class="f">Longitude<input id="lon" type="number" step="0.000001"></label>
+
+      <div class="sec">
+        <div class="sec-h">Design aircraft</div>
+        <div class="grp">
+          <div class="cell"><span class="lab">Category<button class="info" data-info="category" aria-label="About aircraft category"></button></span>
+            <div class="segc" role="group" aria-label="Category"><button id="catPL" aria-pressed="true">Powered lift</button><button id="catH" aria-pressed="false">Helicopter</button></div>
+            <input type="hidden" id="cat" value="pl"></div>
+          <div class="cell"><span class="lab">Preset</span><select class="pop" id="preset" aria-label="Aircraft preset"></select></div>
+          <div class="cell"><span class="lab">Controlling dimension (D)<button class="info" data-info="D" aria-label="About D"></button></span><span class="val"><input id="D" type="number" step="0.1" min="1"><span class="unit">ft</span></span></div>
+          <div class="cell"><span class="lab">Rotor diameter (RD)<button class="info" data-info="RD" aria-label="About RD"></button></span><span class="val"><input id="RD" type="number" step="0.1" min="1"><span class="unit">ft</span></span></div>
+          <div class="cell"><span class="lab">Max takeoff weight<button class="info" data-info="mtow" aria-label="About maximum takeoff weight"></button></span><span class="val"><input id="mtow" type="number" step="10" min="0"><span class="unit">lb</span></span></div>
+        </div>
+        <div class="foot" id="acNote"></div>
       </div>
-      <div class="row" style="grid-template-columns:1fr auto; align-items:end">
-        <label class="f">Ground elevation (ft MSL)<input id="elev" type="number" step="1"></label>
-        <button class="btn" id="elevBtn" title="Look up ground elevation at the pad (USGS, then Open-Meteo)">Look up</button>
+
+      <div class="sec">
+        <div class="sec-h">Pad</div>
+        <div class="grp">
+          <div class="cell"><span class="lab">Shape</span><div class="segc" role="group" aria-label="Pad shape"><button id="shSq" aria-pressed="true">Square</button><button id="shCi" aria-pressed="false">Circle</button></div><input type="hidden" id="shape" value="square"></div>
+          <div class="cell"><span class="lab">FATO length<button class="info" data-info="fatoLen" aria-label="About FATO length"></button><span class="sub" style="display:none"></span></span><span class="val"><input id="fatoLen" type="number" step="1" min="0" placeholder="Min"><span class="unit">ft</span></span></div>
+          <div class="cell"><span class="lab">Deck height<button class="info" data-info="deck" aria-label="About deck height"></button></span><span class="val"><input id="deck" type="number" step="1" min="0"><span class="unit">ft</span></span></div>
+          <div class="cell"><span class="lab">FATO is load-bearing<button class="info" data-info="fatoLB" aria-label="About load-bearing FATO"></button></span><input class="switch" id="fatoLB" type="checkbox" checked aria-label="FATO is load-bearing"></div>
+          <div class="cell"><span class="lab">Standard H or VTL marking<button class="info" data-info="hsym" aria-label="About the H marking"></button></span><input class="switch" id="hsym" type="checkbox" checked aria-label="Standard H or VTL marking"></div>
+        </div>
       </div>
-      <div class="status" id="status"></div>
-      <p class="hint">Click the map or drag the blue pin to move the pad. Drag a numbered handle to swing that approach.</p>
+
+      <div class="sec">
+        <div class="sec-h">Approach paths <small>true north</small></div>
+        <div id="paths"></div>
+        <div class="foot"><button class="btn plain" id="addPath" style="padding-left:0">Add Path</button> · Drag a numbered handle on the map to aim a path.</div>
+      </div>
+
+      <div class="sec">
+        <div class="sec-h">Results</div>
+        <div class="tiles" id="tiles"></div>
+        <div class="grp" style="margin-top:8px" id="res"></div>
+      </div>
+
+      <div class="sec" id="notesSec">
+        <div class="sec-h">Notes</div>
+        <div class="grp" id="msgs"></div>
+      </div>
+
+      <div class="sec">
+        <div class="sec-h">Export</div>
+        <div class="grp">
+          <div class="cell"><span class="lab">Site name</span><span class="val"><input class="short" id="name" type="text" style="width:170px;text-align:right"></span></div>
+          <div class="cell stack">
+            <div class="btnrow"><button class="btn blue" id="kml">Google Earth (KML)</button><button class="info" data-info="kml" aria-label="How to open KML in Google Earth" style="align-self:center"></button></div>
+            <div class="btnrow"><button class="btn" id="geojson">GIS (GeoJSON)</button><button class="info" data-info="geojson" aria-label="How to open GeoJSON in GIS" style="align-self:center"></button></div>
+          </div>
+          <div class="cell"><span class="lab">Design file<button class="info" data-info="design" aria-label="About design files"></button></span>
+            <span style="display:flex;gap:4px"><button class="btn plain" id="save">Save</button><button class="btn plain" id="loadBtn">Open</button></span>
+            <input id="loadFile" type="file" accept=".json,application/json" hidden></div>
+        </div>
+      </div>
+
+      <div class="sec">
+        <div class="sec-h">3D buildings <small>optional</small></div>
+        <div class="grp">
+          <div class="cell stack">
+            <div style="display:flex;align-items:center;gap:6px">Cesium ion token<button class="info" data-info="token" aria-label="How to get a Cesium ion token"></button></div>
+            <input class="fld" id="ionToken" type="text" placeholder="Paste token to add 3D buildings" autocomplete="off" spellcheck="false">
+          </div>
+        </div>
+        <div class="foot">Everything else works without an account or key. <button class="btn plain" id="srcBtn" style="font-size:11px;min-height:0;padding:0">Data sources</button></div>
+      </div>
+
+      <p class="legal">© 2026 Basil Yap. Free for noncommercial use under the <a href="https://polyformproject.org/licenses/noncommercial/1.0.0" target="_blank" rel="noopener">PolyForm Noncommercial License 1.0.0</a>. Commercial use needs a license from the author. A planning sketch, not an FAA airspace determination or design approval.</p>
     </div>
-
-    <div class="card">
-      <h2>Design aircraft</h2>
-      <div class="seg-in" role="group" aria-label="Category">
-        <button id="catPL" aria-pressed="true">Powered lift</button>
-        <button id="catH" aria-pressed="false">Helicopter</button>
-      </div>
-      <input type="hidden" id="cat" value="pl">
-      <label class="f">Preset<select id="preset"></select></label>
-      <div class="row3">
-        <label class="f" title="Controlling dimension: smallest circle around the whole aircraft, rotors turning">D (ft)<input id="D" type="number" step="0.1" min="1"></label>
-        <label class="f" title="Rotor diameter: smallest circle around all lift units and touch points">RD (ft)<input id="RD" type="number" step="0.1" min="1"></label>
-        <label class="f">MTOW (lb)<input id="mtow" type="number" step="10" min="0"></label>
-      </div>
-      <p class="hint" id="acNote"></p>
-    </div>
-
-    <div class="card">
-      <h2>Pad</h2>
-      <div class="row">
-        <label class="f">Shape<select id="shape"><option value="square">Square / rectangle</option><option value="circle">Circle</option></select></label>
-        <label class="f" title="Leave 0 for minimum. A longer FATO along approach 1 makes an elongated FATO.">FATO length (ft, 0 = min)<input id="fatoLen" type="number" step="1" min="0"></label>
-      </div>
-      <label class="f" title="TLOF height above surrounding ground. 2.5 ft (30 in) or more counts as elevated.">Deck height above ground (ft)<input id="deck" type="number" step="1" min="0"></label>
-      <label class="toggle">FATO is load-bearing<input id="fatoLB" type="checkbox" checked></label>
-      <label class="toggle">Standard H / VTL marking<input id="hsym" type="checkbox" checked></label>
-    </div>
-
-    <div class="card">
-      <h2>Approach paths <small>true courses</small></h2>
-      <div id="paths" style="display:flex;flex-direction:column;gap:8px"></div>
-      <div><button class="btn link" id="addPath">+ Add path</button></div>
-      <p class="hint">Course is the heading flown on final. The surface lies on the opposite side of the pad.</p>
-    </div>
-
-    <div class="card">
-      <h2>Dimensions</h2>
-      <div class="big" id="big"></div>
-      <div class="res" id="res"></div>
-    </div>
-
-    <div class="msgs" id="msgs"></div>
-
-    <div class="card">
-      <h2>Export</h2>
-      <label class="f">Site name<input id="name" type="text"></label>
-      <div class="btns">
-        <button class="btn primary" id="kml">Google Earth</button>
-        <button class="btn" id="geojson">GeoJSON</button>
-      </div>
-      <div class="btns">
-        <button class="btn" id="save">Save design</button>
-        <button class="btn" id="loadBtn">Open design</button>
-        <input id="loadFile" type="file" accept=".json,application/json" hidden>
-      </div>
-      <p class="hint">KML puts pad areas on the ground and surfaces in the air at true altitude (ground elevation + deck height + surface height).</p>
-    </div>
-
-    <div class="card">
-      <h2>3D buildings</h2>
-      <label class="f" title="A free token from ion.cesium.com turns on Cesium World Terrain and OSM 3D buildings in the 3D view.">Cesium ion token (optional)<input id="ionToken" type="text" placeholder="Paste token, then reopen 3D" autocomplete="off"></label>
-    </div>
-
-    <p class="hint" style="padding:0 4px">© 2026 Basil Yap. Free for noncommercial use under the <a href="https://polyformproject.org/licenses/noncommercial/1.0.0" target="_blank" rel="noopener">PolyForm Noncommercial License 1.0.0</a>. For commercial licensing, email <span style="user-select:all">github.com/basilbuildsai</span>. Planning sketch only; not an FAA determination.</p>
   </aside>
+</div>
+
+<div class="popover" id="pop" hidden role="dialog" aria-modal="false"></div>
+
+<div class="scrim" id="helpSheet" hidden role="dialog" aria-modal="true" aria-labelledby="helpTitle">
+  <div class="sheet">
+    <div class="sheet-h"><h2 id="helpTitle">Getting Started</h2><button class="btn blue" data-close>Done</button></div>
+    <div class="sheet-b">
+      <p>Lay out a vertiport's surfaces from the FAA draft Advisory Circular in a few steps. No sign-in needed.</p>
+      <div class="grp"><ol class="steps">
+        <li><b>Place the pad</b><span>Search an address, or click the map where the pad goes. Drag the blue pin to fine-tune it. Ground elevation fills in on its own.</span></li>
+        <li><b>Describe the aircraft</b><span>Pick Powered lift or Helicopter. Choose a helicopter preset, or type the aircraft's D, RD and weight from the manufacturer.</span></li>
+        <li><b>Aim the approaches</b><span>Drag the numbered handle at the end of each blue surface, or type the course. Turn on Reciprocal for a straight-through path.</span></li>
+        <li><b>Check the results</b><span>Read the sizes under Results and any Notes. Switch to 3D View to see the surfaces over the terrain.</span></li>
+        <li><b>Export</b><span>Download a KML for Google Earth or a GeoJSON for GIS. Save the design file to reopen it later.</span></li>
+      </ol></div>
+      <p style="margin-top:12px">Tap any <svg width="13" height="13" viewBox="0 0 16 16" style="vertical-align:-2px"><circle cx="8" cy="8" r="7" fill="none" stroke="#8e8e93" stroke-width="1.3"/><path d="M8 7v4.2" stroke="#8e8e93" stroke-width="1.5" stroke-linecap="round"/><circle cx="8" cy="4.8" r=".9" fill="#8e8e93"/></svg> button for an explanation of that setting.</p>
+    </div>
+  </div>
+</div>
+
+<div class="scrim" id="srcSheet" hidden role="dialog" aria-modal="true" aria-labelledby="srcTitle">
+  <div class="sheet">
+    <div class="sheet-h"><h2 id="srcTitle">Data Sources</h2><button class="btn blue" data-close>Done</button></div>
+    <div class="sheet-b">
+      <p>The planner runs in your browser and pulls maps and data from these services. Only 3D buildings need a key.</p>
+      <div class="grp srcs">
+        <div class="cell"><span class="lab"><b>Satellite imagery</b><span class="sub">Esri World Imagery</span></span><span class="tag ok">No key</span></div>
+        <div class="cell"><span class="lab"><b>Light map</b><span class="sub">Esri World Light Gray Canvas</span></span><span class="tag ok">No key</span></div>
+        <div class="cell"><span class="lab"><b>3D terrain</b><span class="sub">Esri World Elevation, or Cesium World Terrain with a token</span></span><span class="tag ok">No key</span></div>
+        <div class="cell"><span class="lab"><b>3D buildings</b><span class="sub">OpenStreetMap buildings through Cesium ion</span></span><span class="tag opt">Free token</span></div>
+        <div class="cell"><span class="lab"><b>Ground elevation</b><span class="sub">USGS Elevation Point Query (US); Open-Meteo elsewhere</span></span><span class="tag ok">No key</span></div>
+        <div class="cell"><span class="lab"><b>Address search</b><span class="sub">Photon, using OpenStreetMap data</span></span><span class="tag ok">No key</span></div>
+        <div class="cell"><span class="lab"><b>Design rules</b><span class="sub">FAA Draft AC 150/5390-4, Chapter 4 and Appendices A and E</span></span><span class="tag ok">Built in</span></div>
+      </div>
+      <p style="margin-top:12px">If a map stays blank, your network may block one of these sites. Ask IT to allow server.arcgisonline.com, elevation3d.arcgis.com, cdn.jsdelivr.net, cdnjs.cloudflare.com, epqs.nationalmap.gov and photon.komoot.io.</p>
+    </div>
+  </div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
@@ -493,8 +598,8 @@ function vertexAltFt(design, alt, h) {
 }
 
 const KML_STYLE = { // aabbggrr, Apple system colors
-  tlof: ["ffffffff", "99ffffff"], fato: ["ff00b3ff", "2600b3ff"], safety: ["ff007aff", "00000000"],
-  hpz: ["ff303bff", "40303bff"], dca: ["ffde52af", "14de52af"], approach: ["ffff840a", "38ff840a"], transitional: ["ff8dc430", "268dc430"],
+  tlof: ["ffffffff", "aaffffff"], fato: ["ff00ccff", "2600ccff"], safety: ["ff0095ff", "00000000"],
+  hpz: ["ff303bff", "40303bff"], dca: ["ffde52af", "14de52af"], approach: ["ffff7a00", "38ff7a00"], transitional: ["ff59c734", "2659c734"],
 };
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
@@ -569,9 +674,36 @@ const HELI = [
   ["MD Explorer 902", 6500, 38.8, 33.8], ["Sikorsky S-76", 11700, 52.5, 44], ["Sikorsky S-92", 26500, 68.5, 56.3],
 ];
 const $ = id => document.getElementById(id);
-const COLORS = { tlof: "#ffffff", fato: "#ffb300", safety: "#ff7a00", hpz: "#ff3b30", dca: "#af52de", approach: "#0a84ff", transitional: "#30c48d" };
-const LEG = [["tlof", "TLOF"], ["fato", "FATO"], ["safety", "Safety area"], ["hpz", "Protection zone"], ["dca", "Downwash caution"], ["approach", "Approach / departure"], ["transitional", "Transitional 2:1"]];
+const COLORS = { tlof: "#ffffff", fato: "#ffcc00", safety: "#ff9500", hpz: "#ff3b30", dca: "#af52de", approach: "#007aff", transitional: "#34c759" };
+const LEG = [["tlof", "TLOF"], ["fato", "FATO"], ["safety", "Safety area"], ["hpz", "Protection zone"], ["dca", "Downwash caution area"], ["approach", "Approach / departure"], ["transitional", "Transitional"]];
 const ORDER = ["dca", "transitional", "approach", "hpz", "safety", "fato", "tlof"];
+const INFO_ICON = '<svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="7" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M8 7v4.2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="8" cy="4.8" r=".9" fill="currentColor"/></svg>';
+
+// Plain-language help for every setting. Paragraph numbers refer to the draft AC.
+const INFO = {
+  elev: ["Ground elevation", `<p>Height of the ground at the pad, in feet above mean sea level. It sets the altitude of the surfaces in Google Earth.</p><p>It fills in when you place the pad, from the USGS in the United States and Open-Meteo elsewhere. You can type a surveyed value instead.</p><p class="src">Sites above 1,000 ft get a longer FATO (Figure 4-4).</p>`],
+  category: ["Aircraft category", `<p><b>Powered lift</b> covers eVTOL air taxis that hover on rotors and cruise on a wing. <b>Helicopter</b> covers conventional rotorcraft.</p><p>The category sets the approach slope limit: 8:1 or flatter for helicopters, 15:1 or flatter for powered lift.</p><p class="src">Draft AC 4.7.1.1</p>`],
+  D: ["Controlling dimension (D)", `<p>The diameter of the smallest circle that fits around the whole aircraft, seen from above, with rotors or propellers turning.</p><p>D sets the FATO and safety area. Get it from the manufacturer; the draft AC has no powered-lift data.</p><p class="src">Draft AC 1.3, definition 6</p>`],
+  RD: ["Rotor diameter (RD)", `<p>The diameter of the smallest circle around all the rotors, propellers or fans that make lift, plus the landing gear, in takeoff configuration.</p><p>RD sets the TLOF size: RD + 10 ft.</p><p class="src">Draft AC 1.3, definition 40; 4.2.1.4</p>`],
+  mtow: ["Maximum takeoff weight", `<p>The heaviest the aircraft can legally take off. The planner uses it only for the downwash caution area, which the draft AC defines for aircraft of 7,000 lb or less.</p><p class="src">Draft AC 4.6.1</p>`],
+  fatoLen: ["FATO length", `<p>Leave it empty for the minimum size. Enter a larger number to stretch the FATO along Path 1. A longer FATO gives more room for aircraft that need a running takeoff.</p><p class="src">Draft AC 4.3.1.4 and 4.3.3</p>`],
+  deck: ["Deck height", `<p>Height of the landing surface above the surrounding ground. Use 0 for a ground-level pad.</p><p>A pad 30 inches (2.5 ft) or more above the ground counts as elevated, such as a rooftop.</p><p class="src">Draft AC 4.2.1</p>`],
+  fatoLB: ["Load-bearing FATO", `<p>Turn this off if only the TLOF can carry the aircraft's weight, which is common on rooftops. On an elevated pad with a non-load-bearing FATO, the TLOF grows by 20%.</p><p class="src">Draft AC 4.2.1.4</p>`],
+  hsym: ["H or VTL marking", `<p>The standard heliport "H" or vertiport "VTL" symbol painted on the pad. Without it, the safety area grows by 10 ft on every side.</p><p class="src">Draft AC 4.4.1.4 and 4.8</p>`],
+  course: ["Course", `<p>The heading the aircraft flies on final approach, in degrees from true north (not magnetic).</p><p>A course of 230° means the aircraft flies southwest toward the pad, so the approach surface lies to the northeast.</p><p>Drag the numbered handle on the 2D map to set it by eye.</p>`],
+  slope: ["Approach slope", `<p>How steeply the protected surface rises. 8:1 means 1 ft up for every 8 ft out; 15:1 is flatter.</p><p>Helicopters: 8:1 or flatter. Powered lift: 15:1 or flatter. The FAA checks obstacles only against 8:1 under Part 77, so a flatter surface is for planning and is not protected.</p><p class="src">Draft AC 4.7.1.1</p>`],
+  recip: ["Reciprocal", `<p>Adds the same surface on the opposite side of the pad, so aircraft can arrive and depart in both directions. Where that isn't possible, the AC calls for a second path at least 135° away.</p>`],
+  tlof: ["TLOF", `<p>Touchdown and liftoff area. The load-bearing surface the aircraft lands on. Minimum size: RD + 10 ft.</p><p class="src">Draft AC 4.2</p>`],
+  fato: ["FATO", `<p>Final approach and takeoff area. Where the approach ends and takeoff begins. Minimum size is 1.5 D, and its edge must sit at least 0.34 D outside the TLOF. The larger of the two governs.</p><p class="src">Draft AC 4.3</p>`],
+  safety: ["Safety area", `<p>A clear border around the FATO, 0.28 D wide and at least 20 ft. Nothing may stick up above the FATO here except fixed-by-function equipment.</p><p class="src">Draft AC 4.4</p>`],
+  hpz: ["Heliport protection zone", `<p>Ground under the first 280 ft of each approach surface. The FAA recommends the owner control it and keep homes, schools and gathering places out of it.</p><p class="src">Draft AC 4.5</p>`],
+  dca: ["Downwash caution area", `<p>Where rotor wash may reach 34.5 mph. For aircraft of 7,000 lb or less it is at least 780 × 420 ft along each path. The AC gives no size for heavier aircraft.</p><p class="src">Draft AC 4.6</p>`],
+  approach: ["Approach and transitional surfaces", `<p>The approach surface starts at the FATO edge and widens to 500 ft at 4,000 ft out, rising at the chosen slope. Transitional surfaces rise at 2:1 from its sides out to 250 ft from the centerline.</p><p class="src">Draft AC 4.7.1</p>`],
+  kml: ["Open in Google Earth", `<ol><li>Click <b>Google Earth (KML)</b>. The file saves to your Downloads folder.</li><li><b>Google Earth Pro</b> (free desktop app): File › Open, then pick the file.</li><li><b>Google Earth on the web</b>: open earth.google.com, click Projects › New project › Import KML file from computer.</li></ol><p>Pad areas lie on the ground. Surfaces float at their true altitude; tilt the view to see them.</p>`],
+  geojson: ["Open in GIS", `<ol><li>Click <b>GIS (GeoJSON)</b> to download the file.</li><li><b>QGIS</b>: drag the file onto the map.</li><li><b>ArcGIS Pro</b>: run the <i>JSON To Features</i> tool on the file.</li></ol><p>Coordinates are WGS 84 longitude and latitude. Heights are meters above sea level.</p>`],
+  design: ["Design file", `<p><b>Save</b> downloads a small .json file with every setting on this page. <b>Open</b> loads one back, so you can return to a site or send it to a colleague.</p>`],
+  token: ["Get a free Cesium ion token", `<p>A token adds detailed terrain and 3D buildings to the 3D View, so you can see what rises into a surface.</p><ol><li>Go to <a href="https://ion.cesium.com/signup" target="_blank" rel="noopener">ion.cesium.com/signup</a> and create a free account. Signing up with Google is quickest.</li><li>When asked how you'll use it, choose <b>"I'm a developer who wants to use Cesium ion in my apps."</b></li><li>Click <b>Access Tokens</b> at the top, then the token named <b>Default</b>.</li><li>Copy the long token and paste it in the box here.</li></ol><p>The token stays in this browser only. The free Community plan is for noncommercial use; check Cesium's terms for agency work.</p>`],
+};
 
 const DEFAULT = {
   name: "Example vertiport", lat: 35.779600, lon: -78.638200, groundElev: 315,
@@ -584,79 +716,85 @@ try { const saved = JSON.parse(localStorage.getItem("vsp-state") || "null"); if 
 
 // ---------- 2D map ----------
 const map = L.map("map", { zoomControl: false, attributionControl: true }).setView([S.lat, S.lon], 16);
+const ESRI = "https://server.arcgisonline.com/ArcGIS/rest/services/";
 const BASE = {
-  sat: [L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", { maxZoom: 20, maxNativeZoom: 19, attribution: "Imagery © Esri, Maxar, Earthstar Geographics" }),
-        L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}", { maxZoom: 20, maxNativeZoom: 19 })],
-  clean: [L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", { maxZoom: 20, subdomains: "abcd", attribution: "© OpenStreetMap contributors © CARTO" })],
+  sat: [L.tileLayer(ESRI + "World_Imagery/MapServer/tile/{z}/{y}/{x}", { maxZoom: 20, maxNativeZoom: 19, attribution: "Imagery © Esri, Maxar, Earthstar Geographics" }),
+        L.tileLayer(ESRI + "Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}", { maxZoom: 20, maxNativeZoom: 19 })],
+  clean: [L.tileLayer(ESRI + "Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}", { maxZoom: 20, maxNativeZoom: 16, attribution: "© Esri, HERE, Garmin, © OpenStreetMap contributors" }),
+          L.tileLayer(ESRI + "Canvas/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}", { maxZoom: 20, maxNativeZoom: 16 })],
 };
 let baseOn = null;
 function setBase2d(k) { if (baseOn) BASE[baseOn].forEach(l => map.removeLayer(l)); BASE[k].forEach(l => l.addTo(map)); baseOn = k; }
-L.control.scale({ imperial: true, metric: true, position: "bottomleft" }).addTo(map);
+L.control.scale({ imperial: true, metric: true, position: "bottomright" }).addTo(map);
 const layer = L.layerGroup().addTo(map);
 const centerMarker = L.marker([S.lat, S.lon], { draggable: true, icon: L.divIcon({ className: "", html: '<div class="center-pin"></div>', iconSize: [22, 22], iconAnchor: [11, 11] }), zIndexOffset: 1000 }).addTo(map);
 let handles = [];
-
-$("legend").innerHTML = LEG.map(([k, t]) => `<div><span class="dot" style="background:${COLORS[k]}"></span>${t}</div>`).join("");
+$("legend").innerHTML = LEG.map(([k, t]) => `<div><span class="sw" style="background:${COLORS[k]}"></span>${t}</div>`).join("");
 
 // ---------- Form ----------
-function setCatButtons() { $("catPL").setAttribute("aria-pressed", String(S.category === "pl")); $("catH").setAttribute("aria-pressed", String(S.category === "heli")); $("cat").value = S.category; }
+function setSeg(aId, bId, aOn) { $(aId).setAttribute("aria-pressed", String(aOn)); $(bId).setAttribute("aria-pressed", String(!aOn)); }
 function fillPresets() {
-  const opts = ['<option value="custom">Custom (enter D, RD, MTOW)</option>'];
+  const opts = ['<option value="custom">Custom</option>'];
   if (S.category === "heli") HELI.forEach((h, i) => opts.push(`<option value="${i}">${h[0]}</option>`));
   $("preset").innerHTML = opts.join("");
   $("preset").value = S.category === "heli" && HELI[S.preset] ? S.preset : "custom";
+  $("preset").disabled = S.category !== "heli";
   $("acNote").textContent = S.category === "pl"
-    ? "The draft AC has no powered-lift data table. Use D and RD from the manufacturer. The starting values are examples, not a real aircraft."
-    : "Presets come from Appendix E, Table E-1. Confirm with the manufacturer.";
+    ? "The draft AC has no powered-lift data. Enter D, RD and weight from the manufacturer. The starting numbers are examples, not a real aircraft."
+    : "Presets come from the draft AC, Appendix E, Table E-1. Confirm with the manufacturer.";
 }
 function readForm() {
   S.lat = +$("lat").value; S.lon = +$("lon").value; S.groundElev = +$("elev").value;
   S.category = $("cat").value; S.D = +$("D").value; S.RD = +$("RD").value; S.mtow = +$("mtow").value;
-  S.shape = $("shape").value; S.fatoLen = +$("fatoLen").value; S.deck = +$("deck").value;
+  S.shape = $("shape").value; S.fatoLen = +$("fatoLen").value || 0; S.deck = +$("deck").value || 0;
   S.fatoLoadBearing = $("fatoLB").checked; S.hSymbol = $("hsym").checked; S.name = $("name").value || "Vertiport";
 }
 function writeForm() {
   $("lat").value = S.lat.toFixed(6); $("lon").value = S.lon.toFixed(6); $("elev").value = S.groundElev;
-  setCatButtons(); fillPresets(); $("D").value = S.D; $("RD").value = S.RD; $("mtow").value = S.mtow;
-  $("shape").value = S.shape; $("fatoLen").value = S.fatoLen; $("deck").value = S.deck;
+  $("cat").value = S.category; setSeg("catPL", "catH", S.category === "pl"); fillPresets();
+  $("D").value = S.D; $("RD").value = S.RD; $("mtow").value = S.mtow;
+  $("shape").value = S.shape; setSeg("shSq", "shCi", S.shape !== "circle");
+  $("fatoLen").value = S.fatoLen || ""; $("deck").value = S.deck;
   $("fatoLB").checked = S.fatoLoadBearing; $("hsym").checked = S.hSymbol; $("name").value = S.name;
   renderPaths();
 }
 const pad3 = n => String(Math.round(((n % 360) + 360) % 360)).padStart(3, "0");
 function renderPaths() {
-  $("paths").innerHTML = S.paths.map((p, i) => `
-    <div class="path">
-      <div class="top"><span class="num">${i + 1}</span>
-        <span class="sub">Surface extends toward ${pad3(+p.course + 180)}°</span>
-        ${S.paths.length > 1 ? `<button class="x" data-del="${i}" aria-label="Remove path ${i + 1}">×</button>` : ""}</div>
-      <div class="row3" style="align-items:end">
-        <label class="f">Course °T<input type="number" id="pc${i}" data-i="${i}" data-k="course" step="1" min="0" max="359" value="${Math.round(p.course)}"></label>
-        <label class="f">Slope
-          <select id="ps${i}" data-i="${i}" data-k="slope">${[8, 15, 20].map(s => `<option value="${s}" ${+p.slope === s ? "selected" : ""}>${s}:1</option>`).join("")}${[8, 15, 20].includes(+p.slope) ? "" : `<option value="${p.slope}" selected>${p.slope}:1</option>`}</select></label>
-        <label class="toggle" style="padding-bottom:8px">Reciprocal<input type="checkbox" id="pr${i}" data-i="${i}" data-k="recip" ${p.recip ? "checked" : ""}></label>
-      </div>
-    </div>`).join("");
+  $("paths").innerHTML = S.paths.map((p, i) => {
+    const slopes = [8, 15, 20].includes(+p.slope) ? [8, 15, 20] : [8, 15, 20, +p.slope];
+    return `<div class="grp">
+      <div class="cell"><span class="ptitle"><span class="pnum">${i + 1}</span>Path ${i + 1}</span><span class="pdir">Surface toward ${pad3(+p.course + 180)}°</span>${S.paths.length > 1 ? `<button class="del" data-del="${i}">Remove</button>` : ""}</div>
+      <div class="cell"><span class="lab">Course<button class="info" data-info="course" aria-label="About course"></button></span><span class="val"><input type="number" id="pc${i}" data-i="${i}" data-k="course" step="1" min="0" max="359" value="${Math.round(p.course)}"><span class="unit">°T</span></span></div>
+      <div class="cell"><span class="lab">Slope<button class="info" data-info="slope" aria-label="About slope"></button></span><div class="segc" role="group" aria-label="Slope for path ${i + 1}">${slopes.map(s => `<button data-i="${i}" data-slope="${s}" aria-pressed="${+p.slope === s}">${s}:1</button>`).join("")}</div></div>
+      <div class="cell"><span class="lab">Reciprocal<button class="info" data-info="recip" aria-label="About reciprocal"></button></span><input class="switch" type="checkbox" id="pr${i}" data-i="${i}" data-k="recip" ${p.recip ? "checked" : ""} aria-label="Reciprocal for path ${i + 1}"></div>
+    </div>`;
+  }).join("");
+  decorateInfo($("paths"));
 }
-
 $("paths").addEventListener("input", e => {
   const t = e.target, i = +t.dataset.i, k = t.dataset.k; if (!k) return;
   S.paths[i][k] = k === "recip" ? t.checked : +t.value;
+  if (k === "course") { const pd = t.closest(".grp").querySelector(".pdir"); if (pd) pd.textContent = `Surface toward ${pad3(+t.value + 180)}°`; }
   update();
 });
-$("paths").addEventListener("change", e => { if (e.target.dataset.k === "course") renderPaths(); });
-$("paths").addEventListener("click", e => { const d = e.target.dataset.del; if (d !== undefined) { S.paths.splice(+d, 1); renderPaths(); update(); } });
+$("paths").addEventListener("click", e => {
+  const del = e.target.closest("[data-del]"); if (del) { S.paths.splice(+del.dataset.del, 1); renderPaths(); update(); return; }
+  const sb = e.target.closest("[data-slope]"); if (sb) { S.paths[+sb.dataset.i].slope = +sb.dataset.slope; renderPaths(); update(); }
+});
 $("addPath").onclick = () => {
   if (S.paths.length >= 4) return;
   const c = S.paths.length ? (+S.paths[0].course + 135) % 360 : 0;
   S.paths.push({ course: c, slope: S.category === "pl" ? 15 : 8, recip: false }); renderPaths(); update();
 };
 function setCategory(c) {
-  S.category = c; S.preset = "custom"; setCatButtons(); fillPresets();
+  S.category = c; S.preset = "custom"; $("cat").value = c; setSeg("catPL", "catH", c === "pl"); fillPresets();
   if (c === "pl") S.paths.forEach(p => { if (+p.slope < 15) p.slope = 15; });
   renderPaths(); update();
 }
 $("catPL").onclick = () => setCategory("pl");
 $("catH").onclick = () => setCategory("heli");
+$("shSq").onclick = () => { $("shape").value = "square"; setSeg("shSq", "shCi", true); update(); };
+$("shCi").onclick = () => { $("shape").value = "circle"; setSeg("shSq", "shCi", false); update(); };
 $("preset").onchange = () => {
   const v = $("preset").value; S.preset = v;
   if (v !== "custom") { const h = HELI[+v]; $("mtow").value = h[1]; $("D").value = h[2]; $("RD").value = h[3]; }
@@ -664,8 +802,15 @@ $("preset").onchange = () => {
 };
 ["D", "RD", "mtow"].forEach(id => $(id).addEventListener("input", () => { if (S.category === "heli" && $("preset").value !== "custom") { $("preset").value = "custom"; S.preset = "custom"; } }));
 ["lat", "lon", "elev", "D", "RD", "mtow", "fatoLen", "deck", "fatoLB", "hsym", "name"].forEach(id => $(id).addEventListener("input", () => update(id === "lat" || id === "lon")));
-$("shape").addEventListener("change", () => update());
 
+function fitPad() {
+  if (!design) return;
+  const prj = makeProjector(S.lat, S.lon), pts = [];
+  design.features.forEach(f => { if (f.element === "approach" || f.element === "safety") f.ring.forEach(([x, y]) => pts.push(prj.toLL(x, y))); });
+  if (!pts.length) { map.setView([S.lat, S.lon], 16); return; }
+  const wide = innerWidth > 820;
+  map.fitBounds(L.latLngBounds(pts), { paddingTopLeft: [wide ? 400 : 16, wide ? 72 : 16], paddingBottomRight: [wide ? 80 : 16, 24], maxZoom: 17 });
+}
 let design = null;
 function update(recenter) {
   readForm();
@@ -674,13 +819,13 @@ function update(recenter) {
   draw();
   results();
   centerMarker.setLatLng([S.lat, S.lon]);
-  if (recenter) map.panTo([S.lat, S.lon]);
+  if (recenter) fitPad();
   if (mode3d) render3d(recenter);
   try { localStorage.setItem("vsp-state", JSON.stringify(S)); } catch (e) {}
 }
 
 const STYLE2D = {
-  tlof: { color: "#1d1d1f", weight: 1.5, fillColor: "#ffffff", fillOpacity: .75 }, fato: { color: COLORS.fato, weight: 2.5, fillOpacity: .15 },
+  tlof: { color: "#1c1c1e", weight: 1.5, fillColor: "#ffffff", fillOpacity: .8 }, fato: { color: COLORS.fato, weight: 2.5, fillOpacity: .16 },
   safety: { color: COLORS.safety, weight: 2, dashArray: "6 5", fill: false }, hpz: { color: COLORS.hpz, weight: 1.5, fillOpacity: .22 },
   dca: { color: COLORS.dca, weight: 1.5, dashArray: "4 6", fillOpacity: .05 }, approach: { color: COLORS.approach, weight: 2, fillOpacity: .16 },
   transitional: { color: COLORS.transitional, weight: 1, fillOpacity: .12 },
@@ -700,8 +845,8 @@ function draw() {
   const prj = makeProjector(S.lat, S.lon);
   design.surfaces.filter(s => !/R$/.test(s.label)).forEach(s => {
     const pIdx = s.path - 1, r = s.r0 + 4000, d = [Math.sin(s.bearing * Math.PI / 180), Math.cos(s.bearing * Math.PI / 180)];
-    const m = L.marker(prj.toLL(d[0] * r, d[1] * r), { draggable: true, icon: L.divIcon({ className: "", html: `<div class="handle">${s.path}</div>`, iconSize: [30, 30], iconAnchor: [15, 15] }) }).addTo(map);
-    m.bindTooltip(`Path ${s.path}: drag to swing the approach`, { direction: "top", offset: [0, -14] });
+    const m = L.marker(prj.toLL(d[0] * r, d[1] * r), { draggable: true, icon: L.divIcon({ className: "", html: `<div class="handle">${s.path}</div>`, iconSize: [28, 28], iconAnchor: [14, 14] }) }).addTo(map);
+    m.bindTooltip(`Drag to aim path ${s.path}`, { direction: "top", offset: [0, -14] });
     m.on("drag", ev => {
       const [x, y] = prj.toXY(ev.latlng.lat, ev.latlng.lng);
       const bearing = (Math.atan2(x, y) * 180 / Math.PI + 360) % 360;
@@ -718,19 +863,23 @@ const f1 = n => (Math.round(n * 10) / 10).toLocaleString("en-US", { minimumFract
 const m1 = n => (Math.round(n * FT * 10) / 10).toFixed(1);
 function results() {
   const d = design;
-  $("big").innerHTML = `<div><b>${f1(d.overall.length)}<small style="font-size:13px;font-weight:500"> × ${f1(d.overall.width)}</small></b><span>Footprint, ft (${m1(d.overall.length)} × ${m1(d.overall.width)} m)</span></div>
-    <div><b>${d.surfaces[0] ? Math.round(d.surfaces[0].endHeight) : "–"}<small style="font-size:13px;font-weight:500"> ft</small></b><span>Surface height at 4,000 ft</span></div>`;
+  const s0 = d.surfaces[0];
+  $("tiles").innerHTML = `<div class="tile"><div class="k">Footprint</div><div class="n">${Math.round(d.overall.length)}<small>× ${Math.round(d.overall.width)} ft</small></div><div class="m">${m1(d.overall.length)} × ${m1(d.overall.width)} m, with safety area</div></div>
+    <div class="tile"><div class="k">Surface height</div><div class="n">${s0 ? Math.round(s0.endHeight) : "–"}<small>ft</small></div><div class="m">${s0 ? `at 4,000 ft out, ${s0.slope}:1` : "add a path"}</div></div>`;
   const rows = [
-    ["tlof", "TLOF", `${f1(d.tlof)} ft`, d.tlofRule],
-    ["fato", "FATO", d.L > d.W + .05 ? `${f1(d.L)} × ${f1(d.W)} ft` : `${f1(d.W)} ft`, d.fatoRule + (d.elevAdd ? `; +${d.elevAdd.toFixed(0)} ft length for elevation` : "")],
-    ["safety", "Safety area", `${f1(d.sa)} ft`, d.saRule + ", each side"],
-    ["hpz", "Protection zone", "280 ft", "Under each approach, from FATO edge"],
-    ["dca", "Downwash caution", d.dcaOk ? "780 × 420 ft" : "Not defined", d.dcaOk ? "Per path, centered on FATO (≤ 7,000 lb)" : "AC gives sizes only for ≤ 7,000 lb"],
-    [null, "Heliport elevation", `${Math.round(d.heliportElev).toLocaleString("en-US")} ft`, d.elevated ? "MSL, elevated deck (≥ 30 in)" : "MSL, ground level"],
-    ...d.surfaces.map(s => ["approach", `Path ${s.label}`, `${s.slope}:1 → ${f1(s.endHeight)} ft`, `Course ${pad3(s.course)}°T · ${f1(s.w0)} ft wide at FATO, 500 ft at 4,000 ft`]),
+    ["tlof", "TLOF", `${f1(d.tlof)} ft`, d.tlofRule.includes("20%") ? "RD + 10 ft, +20%" : "RD + 10 ft"],
+    ["fato", "FATO", d.L > d.W + .05 ? `${f1(d.L)} × ${f1(d.W)} ft` : `${f1(d.W)} ft`, (d.fatoRule.startsWith("TLOF") ? "set by 0.34 D gap" : "1.5 D") + (d.elevAdd ? `, +${d.elevAdd.toFixed(0)} ft for elevation` : "")],
+    ["safety", "Safety area", `${f1(d.sa)} ft`, "each side"],
+    ["hpz", "Protection zone", "280 ft", "from FATO edge"],
+    ["dca", "Downwash caution area", d.dcaOk ? "780 × 420 ft" : "Not defined", d.dcaOk ? "per path" : "over 7,000 lb"],
+    ...d.surfaces.map(s => ["approach", `Path ${s.label} surface`, `${s.slope}:1`, `course ${pad3(s.course)}°T`]),
+    [null, "Heliport elevation", `${Math.round(d.heliportElev).toLocaleString("en-US")} ft`, d.elevated ? "MSL, elevated" : "MSL"],
   ];
-  $("res").innerHTML = rows.map(([k, t, v, r]) => `<div class="r${k ? "" : " plain"}"><div class="t">${k ? `<span class="dot" style="background:${COLORS[k]}"></span>` : ""}${t}</div><div class="v">${v}</div><div class="rule">${r}</div></div>`).join("");
-  $("msgs").innerHTML = d.msgs.map(([lvl, t]) => `<div class="msg ${lvl === "info" ? "info" : lvl === "bad" ? "bad" : ""}">${t}</div>`).join("");
+  $("res").innerHTML = rows.map(([k, t, v, r]) => `<div class="cell"><span class="lab">${k ? `<span class="sw" style="background:${COLORS[k]}"></span>` : ""}${t}${k ? `<button class="info" data-info="${k}" aria-label="About ${t}"></button>` : ""}</span><span class="rv">${v}<small>${r}</small></span></div>`).join("");
+  decorateInfo($("res"));
+  const ic = { info: "i", warn: "!", bad: "!" };
+  $("msgs").innerHTML = d.msgs.map(([lvl, t]) => `<div class="cell"><div class="note n-${lvl}"><span class="ic">${ic[lvl] || "!"}</span><p>${t}</p></div></div>`).join("");
+  $("notesSec").hidden = !d.msgs.length;
 }
 
 map.on("click", e => { $("lat").value = e.latlng.lat.toFixed(6); $("lon").value = e.latlng.lng.toFixed(6); update(); lookupElev(); });
@@ -744,32 +893,32 @@ async function lookupElev() {
   try {
     const r = await fetch(`https://epqs.nationalmap.gov/v1/json?x=${lon}&y=${lat}&wkid=4326&units=Feet&includeDate=false`);
     const j = await r.json(); const v = parseFloat(j.value);
-    if (isFinite(v) && v > -1000) { $("elev").value = Math.round(v); status(`Ground ${Math.round(v)} ft MSL · USGS 3DEP`); update(); return; }
+    if (isFinite(v) && v > -1000) { $("elev").value = Math.round(v); status(`Ground elevation ${Math.round(v)} ft from USGS`); update(); return; }
   } catch (e) {}
   try {
     const r = await fetch(`https://api.open-meteo.com/v1/elevation?latitude=${lat}&longitude=${lon}`);
     const j = await r.json(); const v = j.elevation[0] / FT;
-    $("elev").value = Math.round(v); status(`Ground ${Math.round(v)} ft MSL · Open-Meteo (coarser)`); update(); return;
+    $("elev").value = Math.round(v); status(`Ground elevation ${Math.round(v)} ft from Open-Meteo`); update(); return;
   } catch (e) {}
-  status("Elevation lookup failed. Enter ground elevation by hand.");
+  status("Couldn't look up elevation. Type it in instead.");
 }
 $("elevBtn").onclick = lookupElev;
 async function search() {
   const q = $("q").value.trim(); if (!q) return;
   const m = q.match(/^\s*(-?\d+(?:\.\d+)?)\s*[, ]\s*(-?\d+(?:\.\d+)?)\s*$/);
-  if (m) { $("lat").value = (+m[1]).toFixed(6); $("lon").value = (+m[2]).toFixed(6); update(true); if (!mode3d) map.setZoom(17); lookupElev(); return; }
+  if (m) { $("lat").value = (+m[1]).toFixed(6); $("lon").value = (+m[2]).toFixed(6); update(true); lookupElev(); return; }
   status("Searching…");
   try {
     const r = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&limit=1`);
     const j = await r.json(); const f = j.features && j.features[0];
-    if (!f) { status("No match. Try a fuller address or paste lat, lon."); return; }
+    if (!f) { status("No match. Try a fuller address, or paste lat, lon."); return; }
     const [lo, la] = f.geometry.coordinates;
-    $("lat").value = la.toFixed(6); $("lon").value = lo.toFixed(6); update(true); if (!mode3d) map.setZoom(17);
+    $("lat").value = la.toFixed(6); $("lon").value = lo.toFixed(6); update(true);
     status(`Found ${[f.properties.name, f.properties.city, f.properties.state].filter(Boolean).join(", ")}`);
     lookupElev();
-  } catch (e) { status("Search failed. Paste lat, lon instead."); }
+  } catch (e) { status("Search isn't available. Paste lat, lon instead."); }
 }
-$("go").onclick = search; $("q").addEventListener("keydown", e => { if (e.key === "Enter") search(); });
+$("q").addEventListener("keydown", e => { if (e.key === "Enter") search(); });
 
 // ---------- Export ----------
 function download(name, text, type) {
@@ -781,16 +930,47 @@ function download(name, text, type) {
 const slug = () => (S.name || "vertiport").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "vertiport";
 const siteInfo = () => ({ name: S.name, lat: S.lat, lon: S.lon, D: S.D, RD: S.RD, mtow: S.mtow,
   aircraft: S.category === "heli" && $("preset").value !== "custom" ? HELI[+$("preset").value][0] : (S.category === "pl" ? "Powered lift (custom)" : "Helicopter (custom)") });
-$("kml").onclick = () => { update(); download(`${slug()}.kml`, buildKML(design, siteInfo()), "application/vnd.google-earth.kml+xml"); };
-$("geojson").onclick = () => { update(); download(`${slug()}.geojson`, buildGeoJSON(design, siteInfo()), "application/geo+json"); };
-$("save").onclick = () => { update(); download(`${slug()}.vertiport.json`, JSON.stringify(S, null, 2), "application/json"); };
+$("kml").onclick = () => { update(); download(`${slug()}.kml`, buildKML(design, siteInfo()), "application/vnd.google-earth.kml+xml"); status(`Saved ${slug()}.kml to Downloads`); };
+$("geojson").onclick = () => { update(); download(`${slug()}.geojson`, buildGeoJSON(design, siteInfo()), "application/geo+json"); status(`Saved ${slug()}.geojson to Downloads`); };
+$("save").onclick = () => { update(); download(`${slug()}.vertiport.json`, JSON.stringify(S, null, 2), "application/json"); status(`Saved ${slug()}.vertiport.json to Downloads`); };
 $("loadBtn").onclick = () => $("loadFile").click();
 $("loadFile").onchange = async e => {
   const f = e.target.files[0]; if (!f) return;
   try { const j = JSON.parse(await f.text()); if (!j.paths) throw 0; S = { ...DEFAULT, ...j }; writeForm(); update(true); status(`Opened ${f.name}`); }
-  catch (err) { status("That file is not a saved design."); }
+  catch (err) { status("That file isn't a saved design."); }
   e.target.value = "";
 };
+
+// ---------- Popovers and sheets ----------
+function decorateInfo(root) { (root || document).querySelectorAll("button.info:not([data-ready])").forEach(b => { b.innerHTML = INFO_ICON; b.dataset.ready = "1"; b.setAttribute("aria-expanded", "false"); }); }
+let popFor = null;
+function closePop() { $("pop").hidden = true; if (popFor) popFor.setAttribute("aria-expanded", "false"); popFor = null; }
+function openPop(btn) {
+  const key = btn.dataset.info, item = INFO[key]; if (!item) return;
+  if (popFor === btn) { closePop(); return; }
+  closePop();
+  const p = $("pop");
+  p.innerHTML = `<h3>${item[0]}</h3>${item[1]}`;
+  p.hidden = false;
+  const r = btn.getBoundingClientRect(), w = p.offsetWidth, h = p.offsetHeight;
+  let left = r.right + 10, top = r.top - 12;
+  if (left + w > innerWidth - 12) left = Math.max(12, r.left - w - 10);
+  if (left < 12) left = 12;
+  if (top + h > innerHeight - 12) top = Math.max(12, innerHeight - h - 12);
+  p.style.left = left + "px"; p.style.top = top + "px";
+  btn.setAttribute("aria-expanded", "true"); popFor = btn;
+}
+document.addEventListener("click", e => {
+  const b = e.target.closest("button.info");
+  if (b) { e.preventDefault(); openPop(b); return; }
+  if (!e.target.closest("#pop")) closePop();
+});
+document.addEventListener("keydown", e => { if (e.key === "Escape") { closePop(); document.querySelectorAll(".scrim").forEach(s => s.hidden = true); } });
+document.querySelector(".side-body").addEventListener("scroll", closePop);
+function openSheet(id) { $(id).hidden = false; $(id).querySelector("[data-close]").focus(); }
+document.querySelectorAll(".scrim").forEach(s => s.addEventListener("click", e => { if (e.target === s || e.target.closest("[data-close]")) s.hidden = true; }));
+$("helpBtn").onclick = () => openSheet("helpSheet");
+$("srcBtn").onclick = () => openSheet("srcSheet");
 
 // ---------- 3D view (CesiumJS, loaded on first use) ----------
 const CESIUM_VER = "1.119.0";
@@ -798,8 +978,8 @@ const CESIUM_BASE = `https://cdn.jsdelivr.net/npm/cesium@${CESIUM_VER}/Build/Ces
 let mode3d = false, viewer = null, cesiumLoading = null, baseH = 0, baseKey = "", hasTerrain = false, terrainNote = "", osmTiles = null;
 function toast(text, tag) {
   if (!text) { $("toast").hidden = true; return; }
-  $("toastText").textContent = text; $("toastTag").textContent = tag || "3D view";
-  $("toastTime").textContent = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  $("toastText").textContent = text; $("toastTag").textContent = tag || "3D View";
+  $("toastTime").textContent = new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
   $("toast").hidden = false;
 }
 try { $("ionToken").value = localStorage.getItem("vsp-ion") || ""; } catch (e) {}
@@ -820,16 +1000,16 @@ function loadCesium() {
 function imageryFor(k) {
   const C = window.Cesium;
   return k === "clean"
-    ? new C.UrlTemplateImageryProvider({ url: "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png", subdomains: ["a", "b", "c", "d"], maximumLevel: 19, credit: "© OpenStreetMap contributors © CARTO" })
-    : new C.UrlTemplateImageryProvider({ url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", maximumLevel: 19, credit: "Imagery © Esri, Maxar, Earthstar Geographics" });
+    ? new C.UrlTemplateImageryProvider({ url: ESRI + "Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}", maximumLevel: 16, credit: "© Esri, HERE, Garmin, © OpenStreetMap contributors" })
+    : new C.UrlTemplateImageryProvider({ url: ESRI + "World_Imagery/MapServer/tile/{z}/{y}/{x}", maximumLevel: 19, credit: "Imagery © Esri, Maxar, Earthstar Geographics" });
 }
 function setBase3d(k) {
   if (!viewer) return;
   const C = window.Cesium;
   viewer.imageryLayers.removeAll();
   viewer.imageryLayers.add(new C.ImageryLayer(imageryFor(k)));
-  viewer.scene.globe.baseColor = C.Color.fromCssColorString(k === "clean" ? "#eceef1" : "#1b2430");
-  if (osmTiles) osmTiles.style = new C.Cesium3DTileStyle({ color: k === "clean" ? "color('#fbfbfd', 1.0)" : "color('#f2f2f5', 1.0)" });
+  viewer.scene.globe.baseColor = C.Color.fromCssColorString(k === "clean" ? "#e8e8ed" : "#1b2430");
+  if (osmTiles) osmTiles.style = new C.Cesium3DTileStyle({ color: k === "clean" ? "color('#fbfbfd', 1.0)" : "color('#f2f2f7', 1.0)" });
 }
 async function makeViewer() {
   const C = window.Cesium;
@@ -845,24 +1025,25 @@ async function makeViewer() {
     if (token) {
       viewer.terrainProvider = await C.createWorldTerrainAsync();
       osmTiles = await C.createOsmBuildingsAsync(); viewer.scene.primitives.add(osmTiles);
-      terrainNote = "Cesium World Terrain and OSM 3D buildings loaded."; hasTerrain = true;
+      terrainNote = "Showing Cesium World Terrain and 3D buildings."; hasTerrain = true;
     } else {
       viewer.terrainProvider = await C.ArcGISTiledElevationTerrainProvider.fromUrl("https://elevation3d.arcgis.com/arcgis/rest/services/WorldElevation3D/Terrain3D/ImageServer");
-      terrainNote = "Esri world terrain loaded. Add a Cesium ion token in the panel for 3D buildings."; hasTerrain = true;
+      terrainNote = "Showing Esri terrain. Add a free Cesium token in the sidebar to see 3D buildings."; hasTerrain = true;
     }
   } catch (e) {
     viewer.terrainProvider = new C.EllipsoidTerrainProvider();
-    terrainNote = "Terrain unavailable, so the globe is flat. Heights are measured from the pad.";
+    terrainNote = token ? "That Cesium token didn't work, so terrain and buildings are off. Check the token in the sidebar." : "Terrain isn't available, so the ground is flat. Heights are measured from the pad.";
   }
   setBase3d(S.basemap);
   baseKey = "";
 }
 async function open3d() {
-  toast("Loading the 3D engine…");
-  try { await loadCesium(); } catch (e) { toast("Could not load the 3D engine. Check the internet connection."); return; }
+  if (location.protocol === "file:") { toast("The 3D View works only when the planner is opened from a web address. The 2D map and exports work from this file. See the README for the online link.", "3D View unavailable"); return; }
+  toast("Loading the 3D view…");
+  try { await loadCesium(); } catch (e) { toast("The 3D view couldn't load. Check your internet connection, or ask IT to allow cdn.jsdelivr.net."); return; }
   if (!viewer) await makeViewer();
   await render3d(true);
-  if (mode3d) { toast(terrainNote); setTimeout(() => { if ($("toastText").textContent === terrainNote) toast(""); }, 6000); }
+  if (mode3d) { toast(terrainNote); setTimeout(() => { if ($("toastText").textContent === terrainNote) toast(""); }, 7000); }
 }
 async function sampleBase() {
   const C = window.Cesium, key = `${S.lat.toFixed(6)},${S.lon.toFixed(6)},${hasTerrain}`;
@@ -883,10 +1064,10 @@ async function render3d(fly) {
   const prj = makeProjector(S.lat, S.lon);
   const deckFt = design.elevated ? +S.deck : 0;
   viewer.entities.removeAll();
-  const alpha = { tlof: .8, fato: .3, safety: 0, hpz: .3, dca: .1, approach: .28, transitional: .2 };
+  const alpha = { tlof: .85, fato: .3, safety: 0, hpz: .3, dca: .1, approach: .28, transitional: .2 };
   ["dca", "hpz", "safety", "fato", "tlof", "transitional", "approach"].forEach(el => design.features.filter(f => f.element === el).forEach(f => {
     const col = C.Color.fromCssColorString(COLORS[el]);
-    const line = el === "tlof" ? C.Color.fromCssColorString("#1d1d1f") : col;
+    const line = el === "tlof" ? C.Color.fromCssColorString("#1c1c1e") : col;
     const lonlat = f.ring.map(([x, y, h]) => { const [la, lo] = prj.toLL(x, y); return [lo, la, h]; });
     const desc = `<table class="cesium-infoBox-defaultTable">${Object.entries(f.props).map(([k, v]) => `<tr><th>${k.replace(/_/g, " ")}</th><td>${v}</td></tr>`).join("")}</table>`;
     if (f.alt === "ground" || (f.alt === "deck" && !design.elevated)) {
@@ -904,12 +1085,10 @@ async function render3d(fly) {
   design.surfaces.forEach(s => {
     const d = [Math.sin(s.bearing * Math.PI / 180), Math.cos(s.bearing * Math.PI / 180)], r = s.r0 + 4000;
     const [la, lo] = prj.toLL(d[0] * r, d[1] * r);
-    const top = baseH + (deckFt + s.endHeight) * FT;
-    viewer.entities.add({ position: C.Cartesian3.fromDegrees(lo, la, top), point: { pixelSize: 8, color: C.Color.WHITE, outlineColor: C.Color.fromCssColorString(COLORS.approach), outlineWidth: 2.5, disableDepthTestDistance: Number.POSITIVE_INFINITY },
+    viewer.entities.add({ position: C.Cartesian3.fromDegrees(lo, la, baseH + (deckFt + s.endHeight) * FT), point: { pixelSize: 8, color: C.Color.WHITE, outlineColor: C.Color.fromCssColorString(COLORS.approach), outlineWidth: 2.5, disableDepthTestDistance: Number.POSITIVE_INFINITY },
       label: { ...pill(`Path ${s.label} · ${s.slope}:1 · ${Math.round(s.endHeight)} ft`, COLORS.approach), pixelOffset: new C.Cartesian2(0, -14) } });
   });
-  viewer.entities.add({ position: C.Cartesian3.fromDegrees(S.lon, S.lat, baseH + deckFt * FT),
-    label: { ...pill(S.name || "Vertiport", "#1d1d1f"), pixelOffset: new C.Cartesian2(0, -18) } });
+  viewer.entities.add({ position: C.Cartesian3.fromDegrees(S.lon, S.lat, baseH + deckFt * FT), label: { ...pill(S.name || "Vertiport", "#1c1c1e"), pixelOffset: new C.Cartesian2(0, -18) } });
   $("camPaths").innerHTML = design.surfaces.map((s, i) => `<button data-final="${i}" aria-pressed="false" title="Pilot's view on final, from the outer end of the surface">Final ${s.label}</button>`).join("");
   if (fly) flyOverview();
 }
@@ -964,7 +1143,7 @@ $("stack").addEventListener("keydown", e => {
   if (!mode3d) { if (b.dataset.cam === "zoomIn") map.zoomIn(); else if (b.dataset.cam === "zoomOut") map.zoomOut(); return; }
   if (!viewer) return; const o = getOrbit(); for (let i = 0; i < 6; i++) CAM_STEP[b.dataset.cam](o); setOrbit(o);
 });
-$("recenter").onclick = () => { if (mode3d && viewer) flyOverview(); else map.setView([S.lat, S.lon], Math.max(map.getZoom(), 16)); };
+$("recenter").onclick = () => { if (mode3d && viewer) flyOverview(); else fitPad(); };
 $("camOverview").onclick = () => viewer && flyOverview();
 $("camTop").onclick = () => {
   if (!viewer) return; const C = window.Cesium, o = getOrbit();
@@ -985,8 +1164,7 @@ $("camPaths").addEventListener("click", e => {
 
 function setMode(is3d) {
   mode3d = is3d;
-  $("v2d").setAttribute("aria-pressed", String(!is3d));
-  $("v3d").setAttribute("aria-pressed", String(is3d));
+  setSeg("v2d", "v3d", !is3d);
   $("map").style.visibility = is3d ? "hidden" : "visible";
   $("globe").hidden = !is3d;
   $("stack3d").hidden = !is3d;
@@ -995,8 +1173,7 @@ function setMode(is3d) {
 }
 function setBasemap(k) {
   S.basemap = k;
-  $("bSat").setAttribute("aria-pressed", String(k === "sat"));
-  $("bClean").setAttribute("aria-pressed", String(k === "clean"));
+  setSeg("bSat", "bClean", k === "sat");
   setBase2d(k); setBase3d(k);
   try { localStorage.setItem("vsp-state", JSON.stringify(S)); } catch (e) {}
 }
@@ -1005,9 +1182,11 @@ $("v3d").onclick = () => setMode(true);
 $("bSat").onclick = () => setBasemap("sat");
 $("bClean").onclick = () => setBasemap("clean");
 
+decorateInfo();
 setBasemap(S.basemap === "clean" ? "clean" : "sat");
 writeForm();
 update(true);
+try { if (!localStorage.getItem("vsp-seen-help")) { openSheet("helpSheet"); localStorage.setItem("vsp-seen-help", "1"); } } catch (e) {}
 </script>
 </body>
 </html>
