@@ -343,6 +343,10 @@ select.pop:focus { outline: none; color: var(--blue); }
           </div></div>
         </div>
         <div class="foot" id="facFoot">From the FAA NASR 28-day airport data.</div>
+        <div class="grp" style="margin-top:8px">
+          <div class="cell"><span class="lab">Part 77 surfaces<button class="info" data-info="part77" aria-label="About Part 77 surfaces"></button></span><input class="switch" id="p77On" type="checkbox" aria-label="Show Part 77 imaginary surfaces of nearby public-use airports"></div>
+        </div>
+        <div class="foot" id="p77Foot">Imaginary surfaces of public-use airports, 14 CFR 77.19.</div>
       </div>
 
       <div class="sec">
@@ -418,6 +422,7 @@ select.pop:focus { outline: none; color: var(--blue); }
         <div class="cell"><span class="lab"><b>Ground elevation</b><span class="sub">USGS Elevation Point Query (US); Open-Meteo elsewhere</span></span><span class="tag ok">No key</span></div>
         <div class="cell"><span class="lab"><b>Class B, C and D airspace</b><span class="sub">FAA NASR 28-day subscription, Class Airspace shapefile</span></span><span class="tag ok">Built in</span></div>
         <div class="cell"><span class="lab"><b>Airports and heliports</b><span class="sub">FAA NASR 28-day subscription, airport base records</span></span><span class="tag ok">Built in</span></div>
+        <div class="cell"><span class="lab"><b>Part 77 surfaces</b><span class="sub">Built from FAA NASR runway end data and 14 CFR 77.19</span></span><span class="tag ok">Built in</span></div>
         <div class="cell"><span class="lab"><b>Address search</b><span class="sub">Photon, using OpenStreetMap data</span></span><span class="tag ok">No key</span></div>
         <div class="cell"><span class="lab"><b>Design rules</b><span class="sub">FAA Draft AC 150/5390-4, Chapter 4 and Appendices A and E</span></span><span class="tag ok">Built in</span></div>
       </div>
@@ -756,14 +761,15 @@ const INFO = {
   design: ["Design file", `<p><b>Save</b> downloads a small .json file with every setting on this page. <b>Open</b> loads one back, so you can return to a site or send it to a colleague.</p>`],
   airspace: ["Controlled airspace", `<p>Shows Class B, C and D airspace within about 50 miles of the pad, drawn the way a sectional chart draws it: Class B solid blue, Class C solid magenta, Class D dashed blue. Hover an area for its floor and ceiling. In 3D View each area is a block from its floor to its ceiling.</p><p>If the pad sits inside or under one of these areas, Notes says so. Flights there need two-way radio contact with ATC (Class C and D) or an ATC clearance (Class B).</p><p class="src">FAA NASR 28-day subscription, Class Airspace shapefile. The cycle date shows under the switch. The FAA updates NASR every 28 days, so check the current cycle or sectional chart before relying on it.</p>`],
   facilities: ["Airports and heliports", `<p>Shows every open landing facility in the FAA's airport records within about 50 miles of the pad: airports, heliports, seaplane bases, gliderports, ultralight parks and balloonports. Use the buttons to pick which types appear.</p><p>Dark symbols are public use, white symbols are private use. Letters mark the type: H heliport, S seaplane base, G gliderport, U ultralight, B balloonport; a dot is an airport, and a ring around it means a control tower. Hover a symbol for its name and distance. The three nearest show under the switch.</p><p class="src">FAA NASR 28-day subscription, APT_BASE. Cycle date shows under the switch.</p>`],
+  part77: ["Part 77 surfaces", `<p>The imaginary surfaces of 14 CFR 77.19 around every public-use airport within 20 miles: primary, approach, transitional, horizontal (150 ft above the airport) and conical. An object that rises through one is an obstruction to air navigation under 77.17.</p><p>The planner builds them from each runway end's Part 77 category in the FAA airport records (A or B visual, A nonprecision, C, D or precision). Ends with no category are drawn as utility visual, the smallest case. Transitional surfaces are drawn up to the horizontal surface only; the extra 5,000 ft beside precision approaches is left out.</p><p>Notes gives the height of the lowest surface over the pad. This is a planning sketch: the FAA's obstruction evaluation (Form 7460-1) and the airport's own Airport Layout Plan govern.</p><p class="src">14 CFR 77.19; FAA NASR runway end data. Cycle date shows under the switch.</p>`],
   token: ["Get a free Cesium ion token", `<p>A token adds detailed terrain and 3D buildings to the 3D View, so you can see what rises into a surface.</p><ol><li>Go to <a href="https://ion.cesium.com/signup" target="_blank" rel="noopener">ion.cesium.com/signup</a> and create a free account. Signing up with Google is quickest.</li><li>When asked how you'll use it, choose <b>"I'm a developer who wants to use Cesium ion in my apps."</b></li><li>Click <b>Access Tokens</b> at the top, then the token named <b>Default</b>.</li><li>Copy the long token and paste it in the box here.</li></ol><p>The token stays in this browser only. The free Community plan is for noncommercial use; check Cesium's terms for agency work.</p>`],
 };
 
 const DEFAULT = {
-  name: "Example vertiport", lat: 35.779600, lon: -78.638200, groundElev: 315,
+  name: "Example vertiport", lat: 36.127455, lon: -80.252075, groundElev: 980,
   category: "pl", preset: "custom", D: 50, RD: 45, mtow: 7000,
   shape: "square", fatoLen: 0, deck: 0, fatoLoadBearing: true, hSymbol: true,
-  paths: [{ course: 230, slope: 15, recip: true }], basemap: "sat",
+  paths: [{ course: 346, slope: 15, recip: false }, { course: 112, slope: 15, recip: false }], basemap: "sat",
 };
 let S = JSON.parse(JSON.stringify(DEFAULT));
 try { const saved = JSON.parse(localStorage.getItem("vsp-state") || "null"); if (saved && saved.paths) S = { ...S, ...saved }; } catch (e) {}
@@ -809,7 +815,7 @@ function writeForm() {
   $("D").value = S.D; $("RD").value = S.RD; $("mtow").value = S.mtow;
   $("shape").value = S.shape; setSeg("shSq", "shCi", S.shape !== "circle");
   $("fatoLen").value = S.fatoLen || ""; $("deck").value = S.deck;
-  $("fatoLB").checked = S.fatoLoadBearing; $("hsym").checked = S.hSymbol; $("name").value = S.name; $("airOn").checked = !!S.airspace; $("facOn").checked = !!S.facilities;
+  $("fatoLB").checked = S.fatoLoadBearing; $("hsym").checked = S.hSymbol; $("name").value = S.name; $("airOn").checked = !!S.airspace; $("facOn").checked = !!S.facilities; $("p77On").checked = !!S.part77;
   renderPaths();
 }
 const pad3 = n => String(Math.round(((n % 360) + 360) % 360)).padStart(3, "0");
@@ -875,6 +881,7 @@ function update(recenter) {
   centerMarker.setLatLng([S.lat, S.lon]);
   if (recenter) fitPad();
   if (mode3d) render3d(recenter);
+  if (S.part77 && typeof refreshP77 === "function" && p77.key !== `${S.lat.toFixed(3)},${S.lon.toFixed(3)}`) refreshP77();
   if (S.facilities && typeof refreshFac === "function" && fac.key !== `${S.lat.toFixed(4)},${S.lon.toFixed(4)}`) refreshFac();
   if (S.airspace && typeof refreshAir === "function") { const k = `${Math.round(S.lat * 4) / 4},${Math.round(S.lon * 4) / 4}`; if (k !== air.key) refreshAir(); }
   try { localStorage.setItem("vsp-state", JSON.stringify(S)); } catch (e) {}
@@ -949,7 +956,7 @@ function results() {
   $("res").innerHTML = rows.map(([k, t, v, r]) => `<div class="cell"><span class="lab">${k ? `<span class="sw" style="background:${COLORS[k]}"></span>` : ""}${t}${k ? `<button class="info" data-info="${k}" aria-label="About ${t}"></button>` : ""}</span><span class="rv">${v}<small>${r}</small></span></div>`).join("");
   decorateInfo($("res"));
   const ic = { info: "i", warn: "!", bad: "!" };
-  const allMsgs = d.msgs.concat(airNotes());
+  const allMsgs = d.msgs.concat(airNotes(), typeof p77Notes === "function" ? p77Notes() : []);
   $("msgs").innerHTML = allMsgs.map(([lvl, t]) => `<div class="cell"><div class="note n-${lvl}"><span class="ic">${ic[lvl] || "!"}</span><p>${t}</p></div></div>`).join("");
   $("notesSec").hidden = !allMsgs.length;
 }
@@ -959,7 +966,7 @@ const AIR_STYLE = { B: { color: "#1f5fff", label: "Class B" }, C: { color: "#c21
 const air = { feats: [], key: "", loading: null, pane: map.createPane("air") };
 air.pane.style.zIndex = 350;
 const airLayer = L.layerGroup().addTo(map);
-const titleCase = t => String(t || "").toLowerCase().replace(/\b([a-z])/g, c => c.toUpperCase()).replace(/\bClass ([a-z])\b/gi, (m, c) => "Class " + c.toUpperCase()).replace(/\b(Aaf|Afb|Nas|Nolf|Mcas|Jrb|Ang|Arb|Faa|Ems|Llc|Inc|Usa|Us|Va)\b/g, m => m.toUpperCase()).replace(/\b(Mc)([a-z])/g, (m, a, b) => a + b.toUpperCase());
+const titleCase = t => String(t || "").toLowerCase().replace(/\b([a-z])/g, c => c.toUpperCase()).replace(/\bClass ([a-z])\b/gi, (m, c) => "Class " + c.toUpperCase()).replace(/\b(Aaf|Afb|Nas|Nolf|Mcas|Jrb|Ang|Arb|Faa|Ems|Llc|Inc|Usa|Us|Va|Nc|Sc)\b/g, m => m.toUpperCase()).replace(/\b(Mc)([a-z])/g, (m, a, b) => a + b.toUpperCase());
 const airFloor = p => (p.LOWER_CODE === "SFC" || !(p.LOWER_VAL > 0)) ? null : p.LOWER_VAL;
 const airCeil = p => p.UPPER_VAL > 0 ? p.UPPER_VAL : null;
 function airRange(p) {
@@ -1125,13 +1132,158 @@ $("facTypes").addEventListener("click", e => {
   S.facTypes = [...document.querySelectorAll("#facTypes button[aria-pressed=true]")].map(x => x.dataset.t).join("");
   saveState(); $("facFoot").textContent = facFootText(); drawFac2d(); renderLegend(); if (mode3d && viewer) render3d(false);
 });
+// ---------- Part 77 imaginary surfaces (14 CFR 77.19), built from NASR runway ends in data/runways.js ----------
+const P77C = { primary: "#636366", approach: "#30b0c7", transitional: "#a2845e", horizontal: "#5856d6", conical: "#8e8e93" };
+const P77 = {
+  utilVis: c => !["C", "D", "PIR"].includes(c),                                   // utility or visual: A(V), A(NP), B(V)
+  primaryW: c => ({ "A(V)": 250, "A(NP)": 500, "B(V)": 500, C: 500, D: 1000, PIR: 1000 }[c] || 250),   // 77.19(c)
+  outerW: c => ({ "A(V)": 1250, "A(NP)": 2000, "B(V)": 1500, C: 3500, D: 4000, PIR: 16000 }[c] || 1250), // 77.19(d)(2)
+  length: c => c === "PIR" ? 50000 : P77.utilVis(c) ? 5000 : 10000,             // 77.19(d)(3)
+  rise: (c, d) => c === "PIR" ? (d <= 10000 ? d / 50 : 200 + (d - 10000) / 40) : d / (P77.utilVis(c) ? 20 : 34),
+  slopeText: c => c === "PIR" ? "50:1 for 10,000 ft, then 40:1" : P77.utilVis(c) ? "20:1" : "34:1",
+};
+const p77 = { list: [], key: "", script: null, failed: false };
+function loadRwyData() {
+  if (window.RUNWAYS) return Promise.resolve();
+  if (p77.script) return p77.script;
+  p77.script = new Promise((res, rej) => {
+    const el = document.createElement("script"); el.src = "data/runways.js";
+    el.onload = res; el.onerror = () => { p77.script = null; rej(new Error("runway data did not load")); };
+    document.head.appendChild(el);
+  });
+  return p77.script;
+}
+function hull(pts) {
+  const p = pts.slice().sort((a, b) => a[0] - b[0] || a[1] - b[1]), cr = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+  const lo = [], up = [];
+  p.forEach(q => { while (lo.length > 1 && cr(lo[lo.length - 2], lo[lo.length - 1], q) <= 0) lo.pop(); lo.push(q); });
+  p.slice().reverse().forEach(q => { while (up.length > 1 && cr(up[up.length - 2], up[up.length - 1], q) <= 0) up.pop(); up.push(q); });
+  return lo.slice(0, -1).concat(up.slice(0, -1));
+}
+const circlePts = (c, r, n = 48) => Array.from({ length: n }, (_, i) => [c[0] + r * Math.sin(2 * Math.PI * i / n), c[1] + r * Math.cos(2 * Math.PI * i / n)]);
+function segDist(p, a, b) {
+  const dx = b[0] - a[0], dy = b[1] - a[1], t = Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / (dx * dx + dy * dy || 1)));
+  return Math.hypot(p[0] - a[0] - t * dx, p[1] - a[1] - t * dy);
+}
+// Surfaces for one airport, in feet on the airport's local plane. Each vertex is [x, y, ft MSL].
+function part77Airport(ap) {
+  const [id, name, lat, lon, elev, rwys] = ap, prj = makeProjector(lat, lon), H = elev + 150, out = [];
+  const add = (kind, label, ring, holes, extra) => out.push({ kind, label, ring, holes: holes || [], ...extra });
+  const centers = [];
+  rwys.forEach(([rid, paved, e0, e1]) => {
+    const A = prj.toXY(e0[1], e0[2]), B = prj.toXY(e1[1], e1[2]), len = Math.hypot(B[0] - A[0], B[1] - A[1]);
+    if (!(len > 50)) return;
+    const u = [(B[0] - A[0]) / len, (B[1] - A[1]) / len], n = [-u[1], u[0]], ext = paved ? 200 : 0;
+    const codes = [e0[4] || "A(V)", e1[4] || "A(V)"], hw = Math.max(P77.primaryW(codes[0]), P77.primaryW(codes[1])) / 2;
+    const P = [[A[0] - u[0] * ext, A[1] - u[1] * ext, e0[3]], [B[0] + u[0] * ext, B[1] + u[1] * ext, e1[3]]];
+    const at = (o, along, side, h) => [o[0] + u[0] * along + n[0] * side, o[1] + u[1] * along + n[1] * side, h];
+    const rwyName = `${id} runway ${rid}`;
+    add("primary", `${rwyName}: primary surface, ${hw * 2} ft wide`, [at(P[0], 0, hw, P[0][2]), at(P[1], 0, hw, P[1][2]), at(P[1], 0, -hw, P[1][2]), at(P[0], 0, -hw, P[0][2])]);
+    [1, -1].forEach(sg => add("transitional", `${rwyName}: transitional surface, 7:1`,
+      [at(P[0], 0, sg * hw, P[0][2]), at(P[1], 0, sg * hw, P[1][2]), at(P[1], 0, sg * (hw + 7 * (H - P[1][2])), H), at(P[0], 0, sg * (hw + 7 * (H - P[0][2])), H)]));
+    [[0, -1], [1, 1]].forEach(([k, dir]) => {
+      const c = codes[k], S0 = P[k], L = P77.length(c), wo = P77.outerW(c) / 2, h0 = S0[2], endId = [e0, e1][k][0];
+      const half = d => hw + (wo - hw) * d / L, pt = (d, side) => at(S0, dir * d, side, h0 + P77.rise(c, d));
+      const ds = c === "PIR" ? [0, 10000, L] : [0, L];
+      const ring = ds.map(d => pt(d, half(d))).concat(ds.slice().reverse().map(d => pt(d, -half(d))));
+      add("approach", `${rwyName}: approach surface to runway ${endId} (${e0[4] || e1[4] ? c : "no category, drawn as A(V)"}), ${P77.slopeText(c)}, ${L.toLocaleString("en-US")} ft long`, ring, [],
+        { short: `${id} runway ${endId} approach surface`, ax: { o: S0, dir: [u[0] * dir, u[1] * dir], n, L, hw, wo, code: c, h0 } });
+      let d150 = 0; while (d150 < L && h0 + P77.rise(c, d150) < H) d150 += 25;
+      if (h0 < H) [1, -1].forEach(sg => add("transitional", `${rwyName}: transitional surface beside the runway ${endId} approach, 7:1`,
+        [at(S0, 0, sg * hw, h0), pt(d150, sg * half(d150)), at(S0, 0, sg * (hw + 7 * (H - h0)), H)]));
+      centers.push([S0[0], S0[1], P77.utilVis(c) ? 5000 : 10000]);
+    });
+  });
+  if (!centers.length) return null;
+  const inner = hull(centers.flatMap(([x, y, r]) => circlePts([x, y], r))).map(([x, y]) => [x, y, H]);
+  const outer = hull(centers.flatMap(([x, y, r]) => circlePts([x, y], r + 4000))).map(([x, y]) => [x, y, H + 200]);
+  add("horizontal", `${id} horizontal surface, ${Math.round(H).toLocaleString("en-US")} ft MSL (150 ft above the airport)`, inner);
+  add("conical", `${id} conical surface, 20:1 from ${Math.round(H).toLocaleString("en-US")} to ${Math.round(H + 200).toLocaleString("en-US")} ft MSL`, outer, [inner]);
+  return { id, name: titleCase(name), lat, lon, elev, H, prj, surfaces: out, inner, outer };
+}
+// Lowest Part 77 surface over a point, for one airport: { h ft MSL, label } or null.
+function part77Over(a, lat, lon) {
+  const p = a.prj.toXY(lat, lon), cands = [];
+  a.surfaces.filter(s => s.kind === "approach").forEach(s => {
+    const { o, dir, n, L, hw, wo, code, h0 } = s.ax, rx = p[0] - o[0], ry = p[1] - o[1];
+    const d = rx * dir[0] + ry * dir[1], t = Math.abs(rx * n[0] + ry * n[1]);
+    if (d >= 0 && d <= L && t <= hw + (wo - hw) * d / L) cands.push({ h: h0 + P77.rise(code, d), label: s.short });
+  });
+  a.surfaces.filter(s => s.kind === "primary" || s.kind === "transitional").forEach(s => {
+    if (!inRing(p[0], p[1], s.ring)) return;
+    const [A, B, C] = s.ring, det = (B[0] - A[0]) * (C[1] - A[1]) - (C[0] - A[0]) * (B[1] - A[1]);
+    if (!det) return;
+    const l1 = ((p[0] - A[0]) * (C[1] - A[1]) - (C[0] - A[0]) * (p[1] - A[1])) / det, l2 = ((B[0] - A[0]) * (p[1] - A[1]) - (p[0] - A[0]) * (B[1] - A[1])) / det;
+    cands.push({ h: A[2] + l1 * (B[2] - A[2]) + l2 * (C[2] - A[2]), label: `${a.id} ${s.label.split(": ")[1].split(",")[0]}` });
+  });
+  if (inRing(p[0], p[1], a.inner)) cands.push({ h: a.H, label: `${a.id} horizontal surface` });
+  else if (inRing(p[0], p[1], a.outer)) {
+    let dmin = Infinity; a.inner.forEach((q, i) => { dmin = Math.min(dmin, segDist(p, q, a.inner[(i + 1) % a.inner.length])); });
+    cands.push({ h: a.H + dmin / 20, label: `${a.id} conical surface` });
+  }
+  return cands.length ? cands.sort((x, y) => x.h - y.h)[0] : null;
+}
+async function loadP77() {
+  $("p77Foot").textContent = "Building Part 77 surfaces…";
+  try { await loadRwyData(); p77.failed = false; } catch (e) { p77.list = []; p77.failed = true; return; }
+  p77.list = RUNWAYS.airports.filter(a => milesBetween(S.lat, S.lon, a[2], a[3]) <= 20).map(part77Airport).filter(Boolean);
+  p77.key = `${S.lat.toFixed(3)},${S.lon.toFixed(3)}`;
+}
+function p77Notes() {
+  if (!S.part77 || !p77.list.length) return [];
+  const hits = p77.list.map(a => part77Over(a, S.lat, S.lon)).filter(Boolean).sort((x, y) => x.h - y.h);
+  if (!hits.length) return [["info", "No Part 77 surface of a public-use airport lies over the pad."]];
+  const lo = hits[0], above = Math.round(lo.h - S.groundElev), surf = lo.label;
+  return [[above < 200 ? "warn" : "info", above > 0
+    ? `The lowest Part 77 surface over the pad is the ${surf}, at ${Math.round(lo.h).toLocaleString("en-US")} ft MSL, ${above} ft above the ground here. Anything taller, including a building under the pad, is an obstruction to air navigation (14 CFR 77.17).`
+    : `The ground here is already above the ${surf} (${Math.round(lo.h).toLocaleString("en-US")} ft MSL). Check with the FAA before going further.`]];
+}
+const p77Layer = L.layerGroup().addTo(map);
+const P77_STYLE = { primary: { weight: 1, fillOpacity: .35 }, approach: { weight: 1.5, fillOpacity: .1 }, transitional: { weight: .8, fillOpacity: .08 },
+  horizontal: { weight: 1.5, fillOpacity: .03, dashArray: "8 6" }, conical: { weight: 1, fillOpacity: .02, dashArray: "2 6" } };
+const P77_ORDER = ["conical", "horizontal", "transitional", "approach", "primary"];
+function drawP77_2d() {
+  p77Layer.clearLayers();
+  if (!S.part77) return;
+  p77.list.forEach(a => P77_ORDER.forEach(k => a.surfaces.filter(s => s.kind === k).forEach(s => {
+    const ll = r => r.map(([x, y]) => a.prj.toLL(x, y));
+    L.polygon([ll(s.ring), ...s.holes.map(ll)], { pane: "air", color: P77C[k], fillColor: P77C[k], ...P77_STYLE[k] })
+      .bindTooltip(`<b>${a.name} (${a.id})</b><br>${s.label.replace(/^\S+ /, "")}`, { sticky: true }).addTo(p77Layer);
+  })));
+}
+function drawP77_3d() {
+  if (!viewer || !S.part77) return;
+  const C = window.Cesium, toH = ft => baseH + (ft - S.groundElev) * FT;
+  p77.list.forEach(a => P77_ORDER.forEach(k => a.surfaces.filter(s => s.kind === k).forEach(s => {
+    const col = C.Color.fromCssColorString(P77C[k]);
+    const pos = r => r.map(([x, y, h]) => { const [la, lo] = a.prj.toLL(x, y); return C.Cartesian3.fromDegrees(lo, la, toH(h)); });
+    const alpha = { primary: .45, approach: .16, transitional: .14, horizontal: .06, conical: .08 }[k];
+    viewer.entities.add({ name: `${a.name} (${a.id})`, description: `<p>${s.label}</p>`,
+      polygon: { hierarchy: new C.PolygonHierarchy(pos(s.ring), s.holes.map(h => new C.PolygonHierarchy(pos(h)))), perPositionHeight: true, material: col.withAlpha(alpha) } });
+    viewer.entities.add({ polyline: { positions: pos(s.ring.concat([s.ring[0]])), width: k === "approach" ? 1.5 : 1, material: col.withAlpha(.9) } });
+  })));
+}
+async function refreshP77() {
+  if (S.part77) {
+    await loadP77();
+    $("p77Foot").textContent = p77.failed ? "Runway data didn't load. Check that the data folder is next to the planner file."
+      : p77.list.length ? `Public-use airports within 20 miles: ${p77.list.map(a => a.id).join(", ")}. FAA NASR cycle ${RUNWAYS.cycle}.` : "No public-use airports within 20 miles.";
+  } else $("p77Foot").textContent = "Imaginary surfaces of public-use airports, 14 CFR 77.19.";
+  drawP77_2d(); renderLegend(); if (design) results();
+  if (mode3d && viewer) render3d(false);
+}
+$("p77On").checked = !!S.part77;
+$("p77On").addEventListener("change", () => { S.part77 = $("p77On").checked; saveState(); refreshP77(); });
+
 function saveState() { try { localStorage.setItem("vsp-state", JSON.stringify(S)); } catch (e) {} }
 
 function renderLegend() {
   const airRows = S.airspace ? ["B", "C", "D"].filter(c => air.feats.some(f => f.properties.CLASS === c))
     .map(c => `<div><span class="sw" style="background:transparent;box-shadow:inset 0 0 0 2px ${AIR_STYLE[c].color}${AIR_STYLE[c].dash ? ";border:1px dashed #fff" : ""}"></span>${AIR_STYLE[c].label}</div>`) : [];
+  const p77Rows = S.part77 ? [["approach", "Part 77 approach"], ["transitional", "Part 77 transitional"], ["horizontal", "Part 77 horizontal"], ["conical", "Part 77 conical"]]
+    .map(([k, t]) => `<div><span class="sw" style="background:${P77C[k]}"></span>${t}</div>`) : [];
   const facRows = S.facilities ? [`<div><span class="sw" style="background:#1c1c1e;border-radius:50%"></span>Public use facility</div>`, `<div><span class="sw" style="background:#fff;border-radius:50%;box-shadow:inset 0 0 0 1.5px #1c1c1e"></span>Private use facility</div>`] : [];
-  $("legend").innerHTML = LEG.map(([k, t]) => `<div><span class="sw" style="background:${COLORS[k]}"></span>${t}</div>`).concat(airRows, facRows).join("");
+  $("legend").innerHTML = LEG.map(([k, t]) => `<div><span class="sw" style="background:${COLORS[k]}"></span>${t}</div>`).concat(airRows, p77Rows, facRows).join("");
 }
 async function refreshAir() {
   if (S.airspace) { await loadAir(); $("airFoot").textContent = airFootText(); }
@@ -1194,8 +1346,33 @@ function download(name, text, type) {
 const slug = () => (S.name || "vertiport").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "vertiport";
 const siteInfo = () => ({ name: S.name, lat: S.lat, lon: S.lon, D: S.D, RD: S.RD, mtow: S.mtow,
   aircraft: S.category === "heli" && $("preset").value !== "custom" ? HELI[+$("preset").value][0] : (S.category === "pl" ? "Powered lift (custom)" : "Helicopter (custom)") });
-$("kml").onclick = () => { update(); download(`${slug()}.kml`, buildKML(design, siteInfo()), "application/vnd.google-earth.kml+xml"); status(`Saved ${slug()}.kml to Downloads`); };
-$("geojson").onclick = () => { update(); download(`${slug()}.geojson`, buildGeoJSON(design, siteInfo()), "application/geo+json"); status(`Saved ${slug()}.geojson to Downloads`); };
+// Part 77 surfaces go into the exports when that switch is on. Heights are absolute, meters MSL.
+function p77ExportItems() {
+  if (!S.part77) return [];
+  return p77.list.flatMap(a => P77_ORDER.flatMap(k => a.surfaces.filter(s => s.kind === k).map(s => {
+    const ll = r => r.map(([x, y, h]) => { const [la, lo] = a.prj.toLL(x, y); return [+lo.toFixed(7), +la.toFixed(7), +(h * FT).toFixed(2)]; });
+    const close = r => r.concat([r[0]]);
+    return { airport: a.id, kind: k, name: `${a.id}: ${s.label.replace(/^\S+ /, "")}`, rings: [close(ll(s.ring)), ...s.holes.map(h => close(ll(h)))] };
+  })));
+}
+function kmlWithP77(kml) {
+  const items = p77ExportItems(); if (!items.length) return kml;
+  const col = (hex, a) => a + hex.slice(5, 7) + hex.slice(3, 5) + hex.slice(1, 3);
+  const fillA = { primary: "70", approach: "30", transitional: "28", horizontal: "14", conical: "14" };
+  const ring = r => `<LinearRing><coordinates>${r.map(c => c.join(",")).join(" ")}</coordinates></LinearRing>`;
+  const pm = it => `<Placemark><name>${esc(it.name)}</name><Style><LineStyle><color>${col(P77C[it.kind], "ff")}</color><width>1.5</width></LineStyle><PolyStyle><color>${col(P77C[it.kind], fillA[it.kind])}</color></PolyStyle></Style><Polygon><altitudeMode>absolute</altitudeMode><outerBoundaryIs>${ring(it.rings[0])}</outerBoundaryIs>${it.rings.slice(1).map(h => `<innerBoundaryIs>${ring(h)}</innerBoundaryIs>`).join("")}</Polygon></Placemark>`;
+  const folders = p77.list.map(a => `<Folder><name>${esc(a.id)} ${esc(a.name)}</name>${items.filter(i => i.airport === a.id).map(pm).join("")}</Folder>`).join("");
+  return kml.replace("</Document></kml>", `<Folder><name>Part 77 surfaces (14 CFR 77.19), NASR cycle ${RUNWAYS.cycle}</name><visibility>1</visibility>${folders}</Folder>\n</Document></kml>`);
+}
+function geojsonWithP77(text) {
+  const items = p77ExportItems(); if (!items.length) return text;
+  const gj = JSON.parse(text);
+  items.forEach(it => gj.features.push({ type: "Feature", properties: { name: it.name, element: "part77_" + it.kind, airport: it.airport, altitude_ref: "absolute_m_msl", source: `14 CFR 77.19; FAA NASR cycle ${RUNWAYS.cycle}` },
+    geometry: { type: "Polygon", coordinates: it.rings } }));
+  return JSON.stringify(gj, null, 1);
+}
+$("kml").onclick = () => { update(); download(`${slug()}.kml`, kmlWithP77(buildKML(design, siteInfo())), "application/vnd.google-earth.kml+xml"); status(`Saved ${slug()}.kml to Downloads`); };
+$("geojson").onclick = () => { update(); download(`${slug()}.geojson`, geojsonWithP77(buildGeoJSON(design, siteInfo())), "application/geo+json"); status(`Saved ${slug()}.geojson to Downloads`); };
 $("save").onclick = () => { update(); download(`${slug()}.vertiport.json`, JSON.stringify(S, null, 2), "application/json"); status(`Saved ${slug()}.vertiport.json to Downloads`); };
 $("loadBtn").onclick = () => $("loadFile").click();
 $("loadFile").onchange = async e => {
@@ -1353,7 +1530,7 @@ async function render3d(fly) {
       label: { ...pill(`Path ${s.label} · ${s.slope}:1 · ${Math.round(s.endHeight)} ft`, COLORS.approach), pixelOffset: new C.Cartesian2(0, -14) } });
   });
   viewer.entities.add({ position: C.Cartesian3.fromDegrees(S.lon, S.lat, baseH + deckFt * FT), label: { ...pill(S.name || "Vertiport", "#1c1c1e"), pixelOffset: new C.Cartesian2(0, -18) } });
-  drawAir3d(); drawFac3d();
+  drawAir3d(); drawP77_3d(); drawFac3d();
   $("camPaths").innerHTML = design.surfaces.map((s, i) => `<button data-final="${i}" aria-pressed="false" title="Pilot's view on final, from the outer end of the surface">Final ${s.label}</button>`).join("");
   if (fly) flyOverview();
 }

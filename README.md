@@ -2,7 +2,9 @@
 
 Draw a vertiport or heliport's protected areas on a map in a few minutes, using the FAA's new draft design standard. Export the result to Google Earth or GIS.
 
-![The planner showing a vertiport in downtown Raleigh with its approach surfaces](docs/images/02-plan-view.jpg)
+![The planner showing an example vertiport in Winston-Salem, NC, with two approach surfaces](docs/images/02-plan-view.jpg)
+
+The examples in this guide use a site in Winston-Salem, North Carolina, 1.6 miles west of Smith Reynolds Airport, with two one-way approach paths. The sample exports are in [`docs/examples`](docs/examples).
 
 The planner follows FAA Draft Advisory Circular 150/5390-4, *Vertical Flight Aircraft Infrastructure Design*, posted October 22, 2026. You give it a location, an aircraft and the directions aircraft will arrive from. It works out the size of the landing pad and its safety areas, and draws the sloped approach surfaces that must stay clear of obstacles.
 
@@ -75,9 +77,9 @@ To see which buildings rise into an approach surface, add a free Cesium ion toke
 3. Click **Access Tokens** at the top of the page, then the token named **Default**.
 4. Copy the long token and paste it into the **Cesium ion token** box in the planner.
 
-With a token, buildings appear in gray and you can see which ones rise through a surface. In this example, two downtown Raleigh towers stand inside the 15:1 approach surface.
+With a token, buildings appear in gray and you can see which ones rise through a surface. In this example, the Wake Forest University stadiums sit just beside the approach surfaces.
 
-![3D buildings over satellite imagery, with the approach surface passing through downtown towers](docs/images/07-3d-buildings.jpg)
+![3D buildings over satellite imagery, with the approach surfaces passing over nearby stadiums and stores](docs/images/07-3d-buildings.jpg)
 
 ![The same view on the light map](docs/images/08-3d-buildings-light.jpg)
 
@@ -90,13 +92,25 @@ Under **Nearby aviation** in the sidebar, two switches add FAA data around the p
 - **Class B, C and D airspace** draws controlled airspace the way a sectional chart does: Class B solid blue, Class C solid magenta, Class D dashed blue. Hover an area for its floor and ceiling. If the pad sits inside or under one, Notes says so and what ATC contact flights there need.
 - **Airports and heliports** shows every open landing facility within about 50 miles: airports, heliports, seaplane bases, gliderports, ultralight parks and balloonports. Use the buttons under the switch to pick types. The three nearest are listed by name and distance.
 
-![Class C airspace and nearby heliports around downtown Raleigh](docs/images/10-airspace-airports.jpg)
+![Winston-Salem Class D and Greensboro Class C airspace, with nearby airports and heliports](docs/images/10-airspace-airports.jpg)
 
-In 3D View each airspace area is a block from its floor to its ceiling.
+The example pad sits inside the Smith Reynolds Class D surface area, so Notes flags it. In 3D View each airspace area is a block from its floor to its ceiling.
 
-![Raleigh-Durham Class C airspace in 3D](docs/images/11-airspace-3d.jpg)
+![Winston-Salem Class D and Greensboro Class C airspace in 3D](docs/images/11-airspace-3d.jpg)
 
 Both layers come from the FAA's NASR 28-day subscription and are built into the planner, so they work offline. The cycle date shows under each switch. The FAA updates NASR every 28 days, so check the current sectional chart before relying on it.
+
+## Part 77 surfaces
+
+The **Part 77 surfaces** switch draws the imaginary surfaces of 14 CFR 77.19 for every public-use airport within 20 miles: the primary surface along each runway, the approach surfaces off each end, the 7:1 transitional surfaces, the horizontal surface 150 ft above the airport, and the 20:1 conical surface beyond it. An object that rises through any of them is an obstruction to air navigation under 14 CFR 77.17.
+
+![Part 77 surfaces of Smith Reynolds and Piedmont Triad airports around the example site](docs/images/15-part77-2d.jpg)
+
+The FAA does not publish these surfaces as map data, but it does publish everything needed to build them. Each runway end in the FAA's NASR records carries its Part 77 category (utility or larger, visual, nonprecision or precision), along with its position and elevation. The planner applies the 77.19 dimensions to those records. Notes reports the lowest surface over the pad: at the example site, that is the Smith Reynolds horizontal surface at 1,119 ft MSL, 139 ft above the ground.
+
+![The same surfaces in 3D](docs/images/16-part77-3d.jpg)
+
+Two simplifications: runway ends with no category in NASR are drawn as utility visual (the smallest case), and the transitional surfaces stop at the horizontal surface, leaving out the extra 5,000 ft beside precision approaches. The surfaces are included in the KML and GeoJSON exports while the switch is on. For a real project, the FAA's obstruction evaluation (Form 7460-1) and the airport's Airport Layout Plan govern.
 
 ## Pad markings
 
@@ -119,7 +133,7 @@ You don't need to install anything. Google Earth on the web opens the KML file d
 
 The file stays on your computer; nothing is uploaded to your Google account.
 
-![The example export in Google Earth on the web](docs/images/14-google-earth.jpg)
+![The example export in Google Earth on the web, with the Part 77 folder in the list](docs/images/14-google-earth.jpg)
 
 If you prefer the desktop app, Google Earth Pro is a free download from Google. Choose File, then Open, and pick the `.kml` file. Google Earth Pro also fills the sloped surfaces with color; the web version mostly shows their outlines.
 
@@ -129,7 +143,7 @@ The pad areas lie on the ground. The approach and transitional surfaces float at
 
 Drag the `.geojson` file onto the map. QGIS gives every shape the same random color at first. To color it like the planner, download [`vertiport-surfaces.qml`](docs/qgis/vertiport-surfaces.qml), then right-click the layer, choose **Properties**, then **Style**, and at the bottom pick **Style**, then **Load Style**, and choose that file.
 
-![The example export in QGIS over satellite imagery, styled with the planner's colors](docs/images/12-qgis.jpg)
+![The example export in QGIS, styled with the planner's colors, including the Part 77 surfaces of four airports](docs/images/12-qgis.jpg)
 
 ![Close-up of the pad in QGIS, with the H and the weight box](docs/images/13-qgis-pad.jpg)
 
@@ -193,12 +207,14 @@ This is a planning sketch based on a draft standard. It is not an FAA airspace d
 
 The whole planner is one HTML file, `tool/vertiport-surfaces.html`. The geometry is a set of pure functions in the `<script id="geometry">` block, with no page dependencies, so it can be tested in Node. It uses Leaflet for the 2D map and CesiumJS for the 3D view, both loaded from public CDNs.
 
-The airspace and airport layers live in `tool/data/`. To refresh them for a new NASR cycle, download the subscription from https://www.faa.gov/air_traffic/flight_info/aeronav/aero_data/NASR_Subscription/ and run:
+The airspace, airport and runway (Part 77) layers live in `tool/data/`. To refresh them for a new NASR cycle, download the subscription from https://www.faa.gov/air_traffic/flight_info/aeronav/aero_data/NASR_Subscription/ and run:
 
 ```
 scripts/build_airspace.sh <class_airspace_shape_files.zip> <cycle date>
 python3 scripts/build_facilities.py <DD_Mon_YYYY_CSV.zip> <cycle date>
 ```
+
+`build_facilities.py` writes both `facilities.js` and `runways.js`.
 
 The airspace script needs GDAL (`ogr2ogr`). The current files are from the October 29, 2026 cycle.
 
