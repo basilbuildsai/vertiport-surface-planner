@@ -2,6 +2,8 @@
 
 Draw a vertiport or heliport's protected areas on a map in a few minutes, using the FAA's new draft design standard. Export the result to Google Earth or GIS.
 
+This is a companion app to the [Heliport Surface Planner](https://basilbuildsai.github.io/heliport-surface-planner/) ([repo](https://github.com/basilbuildsai/heliport-surface-planner)), which does the same job for helicopters under the FAA's current heliport design standard, AC 150/5390-2D. The two tools share the same layout, controls and export formats.
+
 ![The planner showing an example vertiport in Winston-Salem, NC, with two approach surfaces](docs/images/02-plan-view.jpg)
 
 The examples in this guide use a site in Winston-Salem, North Carolina, 1.6 miles west of Smith Reynolds Airport, with two one-way approach paths. The sample exports are in [`docs/examples`](docs/examples).
@@ -15,6 +17,14 @@ It runs in a web browser. There is nothing to install and no account to create.
 [![Play the 7-minute Vertiport Surface Planner walkthrough on YouTube](docs/images/00-video-walkthrough.jpg)](https://youtu.be/CsUHH2hGvCI)
 
 Click the picture to play the 7-minute walkthrough on YouTube.
+
+### What's new
+
+- [Wind analysis](#check-the-wind): ten years of hourly reports from the nearest weather station, a wind rose with your paths on it, and the best single path and reciprocal pair.
+- [Magnetic courses](#3-aim-the-approaches) beside every true course, from the World Magnetic Model 2025.
+- [Curved approach paths](#3-aim-the-approaches), checked against the AC's minimum straight leg and radius.
+- [The 135° rule](#3-aim-the-approaches) enforced as a standard: paths that miss it turn red, and an export of a non-standard layout says so.
+- [Fly a path](#fly-a-path) in 3D with a generic eVTOL, in a pilot or chase view. The aircraft flies its own path above the surface, and a profile shows its clearance over the ground and buildings beneath.
 
 The FAA is taking comments on the draft until January 11, 2027 (vertiports@faa.gov). This tool will need updating when the final version is published.
 
@@ -48,11 +58,25 @@ The draft AC has no data for powered-lift aircraft, so these numbers must come f
 
 ### 3. Aim the approaches
 
-Each blue band is an approach path. Drag the numbered white handle at its end to point it where aircraft will fly in, or type the course in degrees from true north. Pick a slope; powered lift needs 15:1 or flatter. Leave **Reciprocal** on if aircraft can use the same line in both directions. Use **Add Path** for another direction.
+Each blue band is an approach path. Drag the numbered white handle at its end to point it where aircraft will fly in, or type the course in degrees from true north. The magnetic course shows beside it, from the World Magnetic Model 2025. Pick a slope; powered lift needs 15:1 or flatter. Turn on **Reciprocal** if aircraft can use the same line in both directions. Use **Add Path** for another direction.
+
+The draft AC requires at least two paths that are reciprocal or, where that isn't feasible, at least 135° apart (3.3.1.1(3)). This is a standard, so a path that misses it turns red, with the reason under it.
+
+![Two paths only 126° apart, both outlined in red with the reason and the AC paragraph under each](docs/images/18-non-standard.jpg)
+
+To bend a path around buildings or terrain, set **Curve** to Left or Right (as seen from the pad looking out). Then set the straight leg (at least 1,000 ft), the radius (at least 886 ft) and the turn. The AC allows curved paths (4.7.1.1(10)), but the FAA does not evaluate them for obstructions or show them on charts, so they need local protection.
+
+![Path 2 curving left after a 1,000 ft straight leg, with its straight leg, radius and turn, and magnetic courses beside the true courses](docs/images/17-approach-paths.jpg)
+
+### Check the wind
+
+Under **Wind**, the planner picks the nearest weather station with ten full years of hourly reports. Set the aircraft's crosswind and tailwind limits, then click **Run Wind Analysis**. It downloads the reports from the Iowa Environmental Mesonet archive, which takes about a minute, and draws a wind rose with your paths on it. It then shows the prevailing wind, how often your paths are usable, and the best single path and reciprocal pair. **Use for Path 1** aims Path 1 to match. This covers the wind analysis that draft AC 3.3.1.1(1) and (2) require. Results are saved in your browser, so the next run for that station is instant.
+
+![Wind rose for Smith Reynolds (INT), 2016 to 2025, with the two paths marked, the prevailing wind and how often the paths are usable](docs/images/20-wind.jpg)
 
 ### 4. Check the results
 
-The **Results** section lists every size the AC requires, and **Notes** flags anything that needs attention, such as a slope that is too steep for the aircraft type.
+The **Results** section lists every size the AC requires, and **Notes** flags anything that needs attention, such as a slope that is too steep for the aircraft type. Red notes mark a standard the layout doesn't meet.
 
 Every setting and result has a small **ⓘ** button. Click it for a plain-language explanation and the AC paragraph it comes from.
 
@@ -60,7 +84,9 @@ Every setting and result has a small **ⓘ** button. Click it for a plain-langua
 
 ### 5. Export
 
-Name the site, then click **Google Earth (KML)** or **GIS (GeoJSON)**. The file saves to your Downloads folder. Click **Save** under Design file to keep your settings, and **Open** to load them again later or share them with a colleague.
+Name the site, then click **Google Earth (KML)** or **GIS (GeoJSON)**. The file saves to your Downloads folder. If the layout breaks a standard, the planner lists the failed checks first. If you export anyway, the file is marked non-standard: the KML name and summary say so, and both formats carry a `non_standard` flag and the list of `failed_checks`. Click **Save** under Design file to keep your settings, and **Open** to load them again later or share them with a colleague.
+
+![The warning shown before exporting a non-standard layout, listing the failed check](docs/images/19-export-warning.jpg)
 
 ![Results, notes, export buttons and the Cesium token help](docs/images/04-results-and-token-help.jpg)
 
@@ -73,6 +99,18 @@ Click **3D View** at the top of the map. The surfaces appear in the air at their
 Click **Light** at the top for a plain gray map that makes the surfaces easier to read.
 
 ![3D view on the light map](docs/images/06-3d-light.jpg)
+
+### Fly a path
+
+Click **Fly** in the bar at the bottom of the 3D view. A generic eVTOL (a lift-plus-cruise layout with eight lift rotors, not any real type), sized so its rotor tips span your D, flies the chosen path from 4,000 ft out to a hover over the pad. Choose **Departure** to fly it outbound. **Pilot** shows the view from the cockpit and **Chase** follows from behind. Drag the slider to scrub.
+
+The approach surface is the floor that obstacles must stay below, not the path the aircraft flies. The aircraft flies its own **Flight path**, 8:1 (7.1°) unless you change it, and the readout shows how far its wheels are above the surface and above the highest object below. A flight path shallower than the surface shows in red. Use the aircraft's normal approach angle from the manufacturer when you have it.
+
+![Chase view of the generic eVTOL 445 ft out on an 8:1 path above the 15:1 surface, with the readout and profile below](docs/images/21-fly-chase.jpg)
+
+Under the flight is a profile of the path: the flight path, the design surface, the 8:1 Part 77 surface for comparison, and the highest ground or building across the surface's width every 100 ft. Anything that rises into the surface shows in red, and the note under the chart says where. Without a Cesium token the profile uses terrain only. Trees aren't in either data set, so confirm with a survey.
+
+![Pilot's view 920 ft out, looking down the approach toward the pad, with 3D buildings on both sides](docs/images/22-fly-pilot.jpg)
 
 ### Optional: show 3D buildings
 
@@ -174,13 +212,15 @@ Coordinates are WGS 84 longitude and latitude (EPSG:4326). Heights are meters ab
 
 Sites above 1,000 ft elevation get a longer FATO, read from Figure 4-4 of the draft AC to within about 5 ft. Helicopter presets come from Appendix E, Table E-1.
 
-Not drawn yet: curved approaches, hospital lateral extensions, taxiways and their caution areas, and parking positions.
+Approach paths can be straight or curved (4.7.1.1(10), Figure 4-11). Courses show in true and magnetic.
+
+Not drawn yet: hospital lateral extensions, taxiways and their caution areas, and parking positions.
 
 The FAA evaluates obstacles only against the 8:1 surface under 14 CFR Part 77. A flatter 15:1 or 20:1 surface is useful for planning, but the FAA does not protect it or use it for charting.
 
 ## If something doesn't work
 
-**The map is blank or gray.** Your network may block a map service. Ask IT to allow these sites: `server.arcgisonline.com`, `elevation3d.arcgis.com`, `cdn.jsdelivr.net`, `cdnjs.cloudflare.com`, `epqs.nationalmap.gov`, `api.open-meteo.com` and `photon.komoot.io`. The **Data sources** link at the bottom of the sidebar lists what each one provides.
+**The map is blank or gray.** Your network may block a map service. Ask IT to allow these sites: `server.arcgisonline.com`, `elevation3d.arcgis.com`, `cdn.jsdelivr.net`, `cdnjs.cloudflare.com`, `epqs.nationalmap.gov`, `api.open-meteo.com`, `photon.komoot.io` and `mesonet.agron.iastate.edu` (wind analysis). The **Data sources** link at the bottom of the sidebar lists what each one provides.
 
 **The 3D view says it is unavailable.** You opened the downloaded file from your computer. Use the online link instead.
 
@@ -204,6 +244,7 @@ The FAA evaluates obstacles only against the 8:1 surface under 14 CFR Part 77. A
 | DCA | Downwash and outwash caution area |
 | 8:1, 15:1 | Surface slope: 1 ft up for every 8 or 15 ft out |
 | °T | Degrees from true north |
+| °M | Degrees from magnetic north (World Magnetic Model 2025) |
 
 ## Important
 
@@ -221,6 +262,8 @@ python3 scripts/build_facilities.py <DD_Mon_YYYY_CSV.zip> <cycle date>
 ```
 
 `build_facilities.py` writes both `facilities.js` and `runways.js`.
+
+The weather station list for the wind analysis, `tool/data/asos-stations.js`, comes from the Iowa Environmental Mesonet's ASOS network lists. To refresh it, download `https://mesonet.agron.iastate.edu/geojson/network/<ST>_ASOS.geojson` for each state into a folder and run `python3 scripts/build_asos_stations.py <folder> <download date>`. Magnetic courses use the World Magnetic Model 2025 coefficients, built into the geometry block; replace them when WMM2030 is released.
 
 The airspace script needs GDAL (`ogr2ogr`). The current files are from the October 29, 2026 cycle.
 

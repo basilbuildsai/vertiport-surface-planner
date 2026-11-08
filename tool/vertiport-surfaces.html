@@ -21,7 +21,7 @@
 <meta name="twitter:title" content="Vertiport Surface Planner">
 <meta name="twitter:description" content="A free browser tool that lays out the FAA's draft vertiport standard (AC 150/5390-4) on any site: pad size, safety areas, approach surfaces, Class B, C and D airspace and Part 77 surfaces, in 2D and 3D. Built for state and local governments.">
 <meta name="twitter:image" content="https://basilbuildsai.github.io/vertiport-surface-planner/og.jpg">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23111114'/%3E%3Crect x='12' y='12' width='40' height='40' rx='3' fill='none' stroke='%23ffcc00' stroke-width='3.5'/%3E%3Cpath d='M24 21v22M40 21v22M24 32h16' stroke='%23fff' stroke-width='5.5'/%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23111114'/%3E%3Crect x='12' y='12' width='40' height='40' rx='3' fill='none' stroke='%23ffcc00' stroke-width='3.5'/%3E%3Cpath d='M21.5 21L32 43L42.5 21' fill='none' stroke='%23fff' stroke-width='5.5' stroke-linejoin='miter'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <style>
 /* Layout: full-bleed map; a translucent sidebar (Apple "inset grouped" lists) floats on the left; map controls float to its right.
@@ -212,7 +212,7 @@ select.pop:focus { outline: none; color: var(--blue); }
 .popover li { margin: 2px 0; }
 .popover .src { color: var(--label2); font-size: 11px; }
 .scrim { position: fixed; inset: 0; z-index: 3000; background: rgba(0,0,0,.24); display: grid; place-items: center; padding: var(--s4); }
-.sheet { width: 520px; max-width: 100%; max-height: calc(100vh - 32px); overflow-y: auto; background: var(--grouped); border-radius: 14px; box-shadow: var(--shadow-3); }
+.sheet { width: min(520px, calc(100vw - 32px)); max-height: calc(100vh - 32px); max-height: calc(100dvh - 32px); overflow-y: auto; background: var(--grouped); border-radius: 14px; box-shadow: var(--shadow-3); }
 .sheet-h { position: sticky; top: 0; display: flex; align-items: center; justify-content: space-between; padding: var(--s4) var(--s5) var(--s3); background: rgba(242,242,247,.92); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); }
 .sheet-h h2 { margin: 0; font-size: 17px; font-weight: 600; }
 .sheet-b { padding: 0 var(--s5) var(--s5); }
@@ -229,6 +229,44 @@ select.pop:focus { outline: none; color: var(--blue); }
 .tag.ok { background: rgba(52,199,89,.15); color: #1f7a37; }
 .tag.opt { background: rgba(255,149,0,.15); color: #8a5300; }
 
+/* Path problems (3.3.1.1(3), 4.7.1.1): the path card turns red and says why */
+.grp.flag-bad { box-shadow: 0 0 0 1.5px var(--red), var(--shadow-1); }
+.grp.flag-bad .pnum { background: var(--red); }
+.grp.flag-warn { box-shadow: 0 0 0 1.5px var(--orange), var(--shadow-1); }
+.pflag { color: #d70015; font-size: 12px; line-height: 1.4; display: block; }
+.pflag.warn { color: #9a5b00; }
+.pflag p { margin: 0; }
+.pflag p + p { margin-top: 4px; }
+.mag { color: var(--label2); font-size: 12px; font-variant-numeric: tabular-nums; min-width: 40px; text-align: right; }
+.subcells .cell { padding-left: 28px; }
+
+/* Wind */
+.rose { display: block; width: 100%; max-width: 300px; margin: 0 auto; }
+.rose text { font: 500 10px var(--f); fill: var(--label2); }
+.keyrow { display: flex; flex-wrap: wrap; gap: 4px 10px; justify-content: center; font-size: 11px; color: var(--label2); }
+.keyrow span { display: inline-flex; align-items: center; gap: 4px; }
+.prog { height: 4px; border-radius: 2px; background: var(--fill); overflow: hidden; }
+.prog i { display: block; height: 100%; width: 0; background: var(--blue); transition: width .2s; }
+.wtip { position: fixed; z-index: 2500; pointer-events: none; background: rgba(255,255,255,.97); border-radius: 8px; box-shadow: var(--shadow-2); padding: 6px 9px; font-size: 12px; line-height: 1.35; }
+
+/* Fly the approach (3D) */
+.sim { position: absolute; left: 50%; transform: translateX(-50%); bottom: 72px; width: min(720px, calc(100% - 32px)); border-radius: 14px; padding: 10px 12px 12px; display: grid; gap: 8px; }
+.sim .row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.sim .grow { flex: 1; }
+.sim input[type=range] { flex: 1; min-width: 120px; accent-color: var(--blue); }
+.sim .ro { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+.sim .fp { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--label2); }
+.sim .fp input { width: 44px; padding: 4px 6px; border: none; border-radius: 7px; background: var(--fill, rgba(118,118,128,.12)); font: inherit; color: var(--label); text-align: right; }
+.sim .ro div { font-size: 11px; color: var(--label2); }
+.sim .ro b { display: block; font-size: 15px; font-weight: 600; color: var(--label); font-variant-numeric: tabular-nums; }
+.sim .ro b.bad { color: #d70015; }
+.sim .note2 { font-size: 11px; color: var(--label2); }
+.prof { width: 100%; height: 150px; display: block; }
+.prof text { font: 500 10px var(--f); fill: var(--label2); }
+.sim .x { position: absolute; top: 8px; right: 8px; }
+.playbtn { width: 32px; height: 32px; border-radius: 50%; border: none; background: var(--blue); color: #fff; display: grid; place-items: center; cursor: pointer; flex: none; }
+.playbtn svg { width: 14px; height: 14px; fill: currentColor; }
+
 @media (min-width: 821px) { #globe { left: 376px; } .hud.g3d { } }
 @media (max-width: 820px) {
   .app { height: auto; overflow: visible; display: flex; flex-direction: column; }
@@ -238,6 +276,9 @@ select.pop:focus { outline: none; color: var(--blue); }
   .hud { left: 0; bottom: 18px; }
   .legend { display: none; }
   .toast { top: 60px; }
+  .sim { bottom: 64px; padding: 8px 10px 10px; }
+  .sim .ro { grid-template-columns: repeat(3, 1fr); }
+  .prof { height: 110px; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
@@ -282,6 +323,22 @@ select.pop:focus { outline: none; color: var(--blue); }
         <button id="camTop" aria-pressed="false">Top Down</button>
         <button id="camAir" aria-pressed="false" hidden title="Pull back to show the controlled airspace around the pad">Airspace</button>
         <span id="camPaths" style="display:contents"></span>
+        <button id="camFly" aria-pressed="false" title="Fly an approach or departure along a path">Fly</button>
+      </div>
+      <div class="sim mat" id="sim" hidden role="region" aria-label="Fly a path">
+        <div class="row">
+          <button class="playbtn" id="simPlay" aria-label="Play"><svg viewBox="0 0 14 14"><path d="M3 1.5v11l9-5.5z"/></svg></button>
+          <div class="segc" role="group" aria-label="Path" id="simPaths"></div>
+          <div class="segc" role="group" aria-label="Approach or departure"><button id="simArr" aria-pressed="true">Approach</button><button id="simDep" aria-pressed="false">Departure</button></div>
+          <div class="segc" role="group" aria-label="Camera"><button id="simPilot" aria-pressed="true">Pilot</button><button id="simChase" aria-pressed="false">Chase</button></div>
+          
+          <div class="segc" role="group" aria-label="Speed"><button data-speed="1" aria-pressed="true">1×</button><button data-speed="4" aria-pressed="false">4×</button></div>
+          <button class="iconbtn" id="simClose" aria-label="Close" style="margin-left:auto"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg></button>
+        </div>
+        <div class="row"><label class="fp" title="The slope the aircraft flies. The approach surface is the floor obstacles must stay below; the aircraft flies above it.">Flight path <input id="simFp" type="number" min="2" max="40" step="0.5" value="8" inputmode="decimal" aria-label="Flight path slope, horizontal to 1 vertical">:1 <span id="simFpDeg"></span></label><input type="range" id="simT" min="0" max="1000" value="0" aria-label="Position along the flight"></div>
+        <div class="ro" id="simRo"></div>
+        <svg class="prof" id="simProf" role="img" aria-label="Profile of the approach surface and the ground beneath it"></svg>
+        <div class="note2" id="simNote"></div>
       </div>
       <div class="legend mat" id="legend"></div>
     </div>
@@ -290,7 +347,7 @@ select.pop:focus { outline: none; color: var(--blue); }
   <aside class="side" aria-label="Planner settings">
     <div class="side-head">
       <div class="appicon" aria-hidden="true">
-        <svg width="26" height="26" viewBox="0 0 26 26" fill="none"><rect x="2.5" y="2.5" width="21" height="21" rx="2" stroke="#ffcc00" stroke-width="1.8"/><path d="M9 7.5v11M17 7.5v11M9 13h8" stroke="#fff" stroke-width="2.6" stroke-linecap="square"/></svg>
+        <svg width="26" height="26" viewBox="0 0 26 26" fill="none"><rect x="2.5" y="2.5" width="21" height="21" rx="2" stroke="#ffcc00" stroke-width="1.8"/><path d="M8.2 7.5L13 18.5L17.8 7.5" stroke="#fff" stroke-width="2.6" stroke-linejoin="miter"/></svg>
       </div>
       <div class="grow">
         <h1>Vertiport Surface Planner</h1>
@@ -342,9 +399,21 @@ select.pop:focus { outline: none; color: var(--blue); }
       </div>
 
       <div class="sec">
-        <div class="sec-h">Approach paths <small>true north</small></div>
+        <div class="sec-h">Approach paths <small id="declNote">true north</small></div>
         <div id="paths"></div>
         <div class="foot"><button class="btn plain" id="addPath" style="padding-left:0">Add Path</button> · Drag a numbered handle on the map to aim a path.</div>
+      </div>
+
+      <div class="sec">
+        <div class="sec-h">Wind <small>10 years of hourly reports</small></div>
+        <div class="grp">
+          <div class="cell"><span class="lab">Weather station<button class="info" data-info="wind" aria-label="About the wind analysis"></button></span><select class="pop" id="windStation" aria-label="Weather station"></select></div>
+          <div class="cell"><span class="lab">Crosswind limit<button class="info" data-info="windLimits" aria-label="About wind limits"></button></span><span class="val"><input id="xwind" type="number" step="0.5" min="0"><span class="unit">kt</span></span></div>
+          <div class="cell"><span class="lab">Tailwind limit</span><span class="val"><input id="twind" type="number" step="0.5" min="0"><span class="unit">kt</span></span></div>
+          <div class="cell stack"><button class="btn" id="windRun">Run Wind Analysis</button><div class="prog" id="windProg" hidden><i></i></div></div>
+          <div id="windOut" hidden></div>
+        </div>
+        <div class="foot" id="windFoot">Observations from the Iowa Environmental Mesonet ASOS archive.</div>
       </div>
 
       <div class="sec">
@@ -400,6 +469,7 @@ select.pop:focus { outline: none; color: var(--blue); }
           </div>
         </div>
         <div class="foot">Everything else works without an account or key. <button class="btn plain" id="srcBtn" style="font-size:11px;min-height:0;padding:0">Data sources</button></div>
+        <div class="foot">Companion app: <a href="https://basilbuildsai.github.io/heliport-surface-planner/" target="_blank" rel="noopener">Heliport Surface Planner</a> (AC 150/5390-2D)</div>
       </div>
 
       <p class="legal">© 2026 Basil Yap. Free for noncommercial use under the <a href="https://polyformproject.org/licenses/noncommercial/1.0.0" target="_blank" rel="noopener">PolyForm Noncommercial License 1.0.0</a>. Commercial use needs a license: <a href="https://docs.google.com/forms/d/e/1FAIpQLSf1xf1FYvdN0Jw-cdIcSiQatTBELTr2MrMmcFuTI27Qir7J-w/viewform" target="_blank" rel="noopener">request one here</a>. A planning sketch, not an FAA airspace determination or design approval.</p>
@@ -414,6 +484,7 @@ select.pop:focus { outline: none; color: var(--blue); }
     <div class="sheet-h"><h2 id="helpTitle">Getting Started</h2><button class="btn blue" data-close>Done</button></div>
     <div class="sheet-b">
       <p>Lay out a vertiport's surfaces from the FAA draft Advisory Circular in a few steps. No sign-in needed.</p>
+      <p>Siting a heliport instead? Use the companion <a href="https://basilbuildsai.github.io/heliport-surface-planner/" target="_blank" rel="noopener">Heliport Surface Planner</a>, which is based on the current heliport AC, 150/5390-2D.</p>
       <div class="grp"><ol class="steps">
         <li><b>Place the pad</b><span>Search an address, or click the map where the pad goes. Drag the blue pin to fine-tune it. Ground elevation fills in on its own.</span></li>
         <li><b>Describe the aircraft</b><span>Pick Powered lift or Helicopter. Choose a helicopter preset, or type the aircraft's D, RD and weight from the manufacturer.</span></li>
@@ -423,6 +494,17 @@ select.pop:focus { outline: none; color: var(--blue); }
       </ol></div>
       <p style="margin-top:12px">New here? Watch the <a href="https://youtu.be/CsUHH2hGvCI" target="_blank" rel="noopener">7-minute walkthrough video</a>.</p>
       <p style="margin-top:12px">Tap any <svg width="13" height="13" viewBox="0 0 16 16" style="vertical-align:-2px"><circle cx="8" cy="8" r="7" fill="none" stroke="#8e8e93" stroke-width="1.3"/><path d="M8 7v4.2" stroke="#8e8e93" stroke-width="1.5" stroke-linecap="round"/><circle cx="8" cy="4.8" r=".9" fill="#8e8e93"/></svg> button for an explanation of that setting.</p>
+    </div>
+  </div>
+</div>
+
+<div class="scrim" id="expSheet" hidden role="dialog" aria-modal="true" aria-labelledby="expTitle">
+  <div class="sheet">
+    <div class="sheet-h"><h2 id="expTitle">Non-Standard Layout</h2><button class="btn" data-close>Cancel</button></div>
+    <div class="sheet-b">
+      <p>This layout doesn't meet draft AC 150/5390-4. If you export it, the file is marked non-standard and lists these checks, so anyone who opens it knows.</p>
+      <div class="grp" id="expList"></div>
+      <div class="btnrow" style="margin-top:16px"><button class="btn" data-close>Go Back and Fix</button><button class="btn blue" id="expGo">Export as Non-Standard</button></div>
     </div>
   </div>
 </div>
@@ -442,9 +524,11 @@ select.pop:focus { outline: none; color: var(--blue); }
         <div class="cell"><span class="lab"><b>Airports and heliports</b><span class="sub">FAA NASR 28-day subscription, airport base records</span></span><span class="tag ok">Built in</span></div>
         <div class="cell"><span class="lab"><b>Part 77 surfaces</b><span class="sub">Built from FAA NASR runway end data and 14 CFR 77.19</span></span><span class="tag ok">Built in</span></div>
         <div class="cell"><span class="lab"><b>Address search</b><span class="sub">Photon, using OpenStreetMap data</span></span><span class="tag ok">No key</span></div>
-        <div class="cell"><span class="lab"><b>Design rules</b><span class="sub">FAA Draft AC 150/5390-4, Chapter 4 and Appendices A and E</span></span><span class="tag ok">Built in</span></div>
+        <div class="cell"><span class="lab"><b>Wind observations</b><span class="sub">Iowa Environmental Mesonet ASOS/AWOS archive (hourly METARs); station list built in</span></span><span class="tag ok">No key</span></div>
+        <div class="cell"><span class="lab"><b>Magnetic declination</b><span class="sub">World Magnetic Model 2025, NOAA NCEI and BGS</span></span><span class="tag ok">Built in</span></div>
+        <div class="cell"><span class="lab"><b>Design rules</b><span class="sub">FAA Draft AC 150/5390-4, Chapters 3 and 4 and Appendices A and E</span></span><span class="tag ok">Built in</span></div>
       </div>
-      <p style="margin-top:12px">If a map stays blank, your network may block one of these sites. Ask IT to allow server.arcgisonline.com, elevation3d.arcgis.com, cdn.jsdelivr.net, cdnjs.cloudflare.com, epqs.nationalmap.gov and photon.komoot.io.</p>
+      <p style="margin-top:12px">If a map stays blank, your network may block one of these sites. Ask IT to allow server.arcgisonline.com, elevation3d.arcgis.com, cdn.jsdelivr.net, cdnjs.cloudflare.com, epqs.nationalmap.gov, photon.komoot.io and mesonet.agron.iastate.edu.</p>
     </div>
   </div>
 </div>
@@ -492,6 +576,103 @@ function rectRing(u, v, halfL, halfW, h = 0) {
   r.push(r[0]);
   return r;
 }
+// ---------- Magnetic declination: World Magnetic Model 2025 (NOAA NCEI / BGS), valid 2025.0 to 2030.0 ----------
+// Rows are n,m,g,h,dg,dh from WMM2025.COF. Checked against NOAA's WMM2025 test values to within 0.005°.
+const WMM_EPOCH = 2025.0, WMM_END = 2030.0;
+const WMM_COF = "1,0,-29351.8,0,12,0;1,1,-1410.8,4545.4,9.7,-21.5;2,0,-2556.6,0,-11.6,0;2,1,2951.1,-3133.6,-5.2,-27.7;2,2,1649.3,-815.1,-8,-12.1;3,0,1361,0,-1.3,0;3,1,-2404.1,-56.6,-4.2,4;3,2,1243.8,237.5,0.4,-0.3;3,3,453.6,-549.5,-15.6,-4.1;4,0,895,0,-1.6,0;4,1,799.5,278.6,-2.4,-1.1;4,2,55.7,-133.9,-6,4.1;4,3,-281.1,212,5.6,1.6;4,4,12.1,-375.6,-7,-4.4;5,0,-233.2,0,0.6,0;5,1,368.9,45.4,1.4,-0.5;5,2,187.2,220.2,0,2.2;5,3,-138.7,-122.9,0.6,0.4;5,4,-142,43,2.2,1.7;5,5,20.9,106.1,0.9,1.9;6,0,64.4,0,-0.2,0;6,1,63.8,-18.4,-0.4,0.3;6,2,76.9,16.8,0.9,-1.6;6,3,-115.7,48.8,1.2,-0.4;6,4,-40.9,-59.8,-0.9,0.9;6,5,14.9,10.9,0.3,0.7;6,6,-60.7,72.7,0.9,0.9;7,0,79.5,0,-0,0;7,1,-77,-48.9,-0.1,0.6;7,2,-8.8,-14.4,-0.1,0.5;7,3,59.3,-1,0.5,-0.8;7,4,15.8,23.4,-0.1,0;7,5,2.5,-7.4,-0.8,-1;7,6,-11.1,-25.1,-0.8,0.6;7,7,14.2,-2.3,0.8,-0.2;8,0,23.2,0,-0.1,0;8,1,10.8,7.1,0.2,-0.2;8,2,-17.5,-12.6,0,0.5;8,3,2,11.4,0.5,-0.4;8,4,-21.7,-9.7,-0.1,0.4;8,5,16.9,12.7,0.3,-0.5;8,6,15,0.7,0.2,-0.6;8,7,-16.8,-5.2,-0,0.3;8,8,0.9,3.9,0.2,0.2;9,0,4.6,0,-0,0;9,1,7.8,-24.8,-0.1,-0.3;9,2,3,12.2,0.1,0.3;9,3,-0.2,8.3,0.3,-0.3;9,4,-2.5,-3.3,-0.3,0.3;9,5,-13.1,-5.2,0,0.2;9,6,2.4,7.2,0.3,-0.1;9,7,8.6,-0.6,-0.1,-0.2;9,8,-8.7,0.8,0.1,0.4;9,9,-12.9,10,-0.1,0.1;10,0,-1.3,0,0.1,0;10,1,-6.4,3.3,0,0;10,2,0.2,0,0.1,-0;10,3,2,2.4,0.1,-0.2;10,4,-1,5.3,-0,0.1;10,5,-0.6,-9.1,-0.3,-0.1;10,6,-0.9,0.4,0,0.1;10,7,1.5,-4.2,-0.1,0;10,8,0.9,-3.8,-0.1,-0.1;10,9,-2.7,0.9,-0,0.2;10,10,-3.9,-9.1,-0,-0;11,0,2.9,0,0,0;11,1,-1.5,0,-0,-0;11,2,-2.5,2.9,0,0.1;11,3,2.4,-0.6,0,-0;11,4,-0.6,0.2,0,0.1;11,5,-0.1,0.5,-0.1,-0;11,6,-0.6,-0.3,0,-0;11,7,-0.1,-1.2,-0,0.1;11,8,1.1,-1.7,-0.1,-0;11,9,-1,-2.9,-0.1,0;11,10,-0.2,-1.8,-0.1,0;11,11,2.6,-2.3,-0.1,0;12,0,-2,0,0,0;12,1,-0.2,-1.3,0,-0;12,2,0.3,0.7,-0,0;12,3,1.2,1,-0,-0.1;12,4,-1.3,-1.4,-0,0.1;12,5,0.6,-0,-0,-0;12,6,0.6,0.6,0.1,-0;12,7,0.5,-0.1,-0,-0;12,8,-0.1,0.8,0,0;12,9,-0.4,0.1,0,-0;12,10,-0.2,-1,-0.1,-0;12,11,-1.3,0.1,-0,0;12,12,-0.7,0.2,-0.1,-0.1";
+const WMM = (() => {
+  const N = 12, Z = () => Array.from({ length: N + 1 }, () => new Float64Array(N + 1));
+  const c = Z(), cd = Z(), snorm = Z(), k = Z(), fn = new Float64Array(N + 1), fm = new Float64Array(N + 1);
+  WMM_COF.split(";").forEach(r => {
+    const [n, m, g, h, dg, dh] = r.split(",").map(Number);
+    c[m][n] = g; cd[m][n] = dg; if (m) { c[n][m - 1] = h; cd[n][m - 1] = dh; }
+  });
+  snorm[0][0] = 1;
+  for (let n = 1; n <= N; n++) {   // Schmidt semi-normalized to unnormalized (NOAA geomag recursion)
+    snorm[0][n] = snorm[0][n - 1] * (2 * n - 1) / n;
+    let j = 2;
+    for (let m = 0; m <= n; m++) {
+      k[m][n] = ((n - 1) ** 2 - m * m) / ((2 * n - 1) * (2 * n - 3));
+      if (m > 0) { snorm[m][n] = snorm[m - 1][n] * Math.sqrt((n - m + 1) * j / (n + m)); j = 1; c[n][m - 1] *= snorm[m][n]; cd[n][m - 1] *= snorm[m][n]; }
+      c[m][n] *= snorm[m][n]; cd[m][n] *= snorm[m][n];
+    }
+    fn[n] = n + 1; fm[n] = n;
+  }
+  k[1][1] = 0;
+  return { N, c, cd, k, fn, fm, Z };
+})();
+// Declination in degrees, east positive. altKm above the ellipsoid; year as a decimal year.
+function magDeclination(glat, glon, year, altKm = 0) {
+  const { N, c, cd, k, fn, fm, Z } = WMM, dt = year - WMM_EPOCH, R = Math.PI / 180;
+  const a = 6378.137, b = 6356.7523142, re = 6371.2, a2 = a * a, b2 = b * b, c2 = a2 - b2, a4 = a2 * a2, c4 = a4 - b2 * b2;
+  const srlat = Math.sin(glat * R), crlat = Math.cos(glat * R), srlat2 = srlat * srlat, crlat2 = crlat * crlat;
+  const q = Math.sqrt(a2 - c2 * srlat2), q1 = altKm * q, q2 = ((q1 + a2) / (q1 + b2)) ** 2;
+  const ct = srlat / Math.sqrt(q2 * crlat2 + srlat2), st = Math.sqrt(1 - ct * ct);
+  const r = Math.sqrt(altKm * altKm + 2 * q1 + (a4 - c4 * srlat2) / (q * q));
+  const d = Math.sqrt(a2 * crlat2 + b2 * srlat2), ca = (altKm + d) / r, sa = c2 * crlat * srlat / (r * d);
+  const sp = new Float64Array(N + 1), cp = new Float64Array(N + 1), pp = new Float64Array(N + 1);
+  cp[0] = 1; pp[0] = 1; sp[1] = Math.sin(glon * R); cp[1] = Math.cos(glon * R);
+  for (let m = 2; m <= N; m++) { sp[m] = sp[1] * cp[m - 1] + cp[1] * sp[m - 1]; cp[m] = cp[1] * cp[m - 1] - sp[1] * sp[m - 1]; }
+  const p = Z(), dp = Z(); p[0][0] = 1;
+  const aor = re / r; let ar = aor * aor, br = 0, bt = 0, bp = 0, bpp = 0;
+  for (let n = 1; n <= N; n++) {
+    ar *= aor;
+    for (let m = 0; m <= n; m++) {
+      if (n === m) { p[m][n] = st * p[m - 1][n - 1]; dp[m][n] = st * dp[m - 1][n - 1] + ct * p[m - 1][n - 1]; }
+      else if (n === 1 && m === 0) { p[m][n] = ct * p[m][n - 1]; dp[m][n] = ct * dp[m][n - 1] - st * p[m][n - 1]; }
+      else if (n > 1 && n !== m) {
+        if (m > n - 2) { p[m][n - 2] = 0; dp[m][n - 2] = 0; }
+        p[m][n] = ct * p[m][n - 1] - k[m][n] * p[m][n - 2];
+        dp[m][n] = ct * dp[m][n - 1] - st * p[m][n - 1] - k[m][n] * dp[m][n - 2];
+      }
+      const g = c[m][n] + dt * cd[m][n], h = m ? c[n][m - 1] + dt * cd[n][m - 1] : 0, par = ar * p[m][n];
+      const t1 = g * cp[m] + h * sp[m], t2 = g * sp[m] - h * cp[m];
+      bt -= ar * t1 * dp[m][n]; bp += fm[m] * t2 * par; br += fn[n] * t1 * par;
+      if (st === 0 && m === 1) { pp[n] = n === 1 ? pp[n - 1] : ct * pp[n - 1] - k[m][n] * pp[n - 2]; bpp += fm[m] * t2 * ar * pp[n]; }
+    }
+  }
+  bp = st === 0 ? bpp : bp / st;
+  return Math.atan2(bp, -bt * ca - br * sa) / R;
+}
+const decimalYear = (dt = new Date()) => { const y = dt.getUTCFullYear(), s = Date.UTC(y, 0, 1); return y + (dt - s) / (Date.UTC(y + 1, 0, 1) - s); };
+const magCourse = (trueDeg, decl) => ((trueDeg - decl) % 360 + 360) % 360;
+const declText = decl => `${Math.abs(decl).toFixed(1)}° ${decl < 0 ? "W" : "E"}`;
+
+// ---------- Curved approach/departure paths, 4.7.1.1(10) and Figure 4-11 ----------
+// A curved surface runs straight from the FATO edge for `straight` ft, then turns through `turn` degrees on a
+// circle of `radius` ft, then continues straight until the centerline totals 4,000 ft. Left and right are as seen
+// from the pad looking out along the surface. The AC's limits: straight >= 1,000 ft, radius >= 886 ft,
+// straight + radius >= 1,886 ft.
+const CURVE_MIN = { straight: 1000, radius: 886, sum: 1886 };
+function curveSpec(pa) {
+  if (!pa || (pa.curve !== "left" && pa.curve !== "right")) return null;
+  const straight = Math.max(0, +pa.straight || CURVE_MIN.straight), radius = Math.max(1, +pa.radius || CURVE_MIN.radius);
+  const maxTurn = Math.max(0, (4000 - straight) / radius * 180 / Math.PI);
+  const turn = Math.min(Math.max(0, isFinite(+pa.turn) ? +pa.turn : 90), maxTurn);
+  return { dir: pa.curve, straight, radius, turn, maxTurn, askedTurn: +pa.turn };
+}
+// Point on a surface centerline `dist` ft out from the FATO edge (negative = back toward the pad center).
+// Returns x, y in ft from the pad center and hdg, the outbound heading there (degrees true).
+function centerlineAt(sf, dist) {
+  const b = sf.bearing, d0 = unit(b), P0 = [d0[0] * sf.r0, d0[1] * sf.r0], cv = sf.curve;
+  if (!cv || dist <= cv.straight) return { x: P0[0] + d0[0] * dist, y: P0[1] + d0[1] * dist, hdg: b };
+  const sg = cv.dir === "right" ? 1 : -1, R = cv.radius, arc = R * cv.turn * Math.PI / 180;
+  const P1 = [P0[0] + d0[0] * cv.straight, P0[1] + d0[1] * cv.straight], cu = unit(b + 90 * sg), cc = [P1[0] + cu[0] * R, P1[1] + cu[1] * R];
+  const a = Math.min(dist - cv.straight, arc) / R * 180 / Math.PI, hdg = b + sg * a, ru = unit(hdg - 90 * sg);
+  const x = cc[0] + ru[0] * R, y = cc[1] + ru[1] * R, extra = dist - cv.straight - arc;
+  if (extra <= 0) return { x, y, hdg: norm360(hdg) };
+  const e = unit(hdg);
+  return { x: x + e[0] * extra, y: y + e[1] * extra, hdg: norm360(hdg) };
+}
+// Distances along the centerline at which to sample the surface outline.
+function centerlineStations(sf, len) {
+  const cv = sf.curve; if (!cv) return [0, len];
+  const st = [0, cv.straight], arc = cv.radius * cv.turn * Math.PI / 180, n = Math.max(1, Math.ceil(cv.turn / 3));
+  for (let i = 1; i <= n; i++) st.push(cv.straight + arc * i / n);
+  if (cv.straight + arc < len - 0.5) st.push(len);
+  return st.filter((s, i, a) => s <= len && (i === 0 || s - a[i - 1] > 0.01));
+}
+
 function circleRing(radius, h = 0, n = 72) {
   const r = [];
   for (let i = 0; i <= n; i++) { const a = 2 * Math.PI * i / n; r.push([radius * Math.sin(a), radius * Math.cos(a), h]); }
@@ -573,13 +754,23 @@ function computeDesign(p) {
     }
   }
 
-  // Surfaces: one per direction (a reciprocal path makes two)
+  // Magnetic declination at the site (WMM2025), for magnetic courses alongside true.
+  const decYear = isFinite(+p.decYear) ? +p.decYear : decimalYear();
+  const decl = isFinite(+p.lat) && isFinite(+p.lon) ? magDeclination(+p.lat, +p.lon, decYear) : 0;
+  if (decYear < WMM_EPOCH || decYear > WMM_END) msgs.push(["warn", `Magnetic courses use WMM2025, which is valid from 2025 to 2030. The date is outside that range, so magnetic values are approximate.`]);
+
+  // Per-path problems, so the approach path section can show them next to the path.
+  const pathFlags = paths.map(() => []);
+  const flag = (i, lvl, text) => { msgs.push([lvl, text]); if (pathFlags[i]) pathFlags[i].push([lvl, text]); };
+
+  // Surfaces: one per direction (a reciprocal path makes two). A curve applies to the path's own surface;
+  // its reciprocal stays straight.
   const surfaces = [];
   paths.forEach((pa, i) => {
     const slope = Math.max(1, +pa.slope || 8);
     const b1 = norm360(+pa.course + 180);
-    surfaces.push({ path: i + 1, bearing: b1, course: norm360(+pa.course), slope, recip: !!pa.recip, label: `${i + 1}` });
-    if (pa.recip) surfaces.push({ path: i + 1, bearing: norm360(b1 + 180), course: norm360(+pa.course + 180), slope, recip: true, label: `${i + 1}R` });
+    surfaces.push({ path: i + 1, idx: i, bearing: b1, course: norm360(+pa.course), slope, recip: !!pa.recip, label: `${i + 1}`, curve: curveSpec(pa) });
+    if (pa.recip) surfaces.push({ path: i + 1, idx: i, bearing: norm360(b1 + 180), course: norm360(+pa.course + 180), slope, recip: true, label: `${i + 1}R`, curve: null });
   });
 
   const LEN = 4000, END_W = 500, TRANS_OUT = 250, HPZ = 280;
@@ -595,20 +786,33 @@ function computeDesign(p) {
     const H = LEN / s.slope;
     s.endHeight = H;
     const endW = Math.max(END_W, w0);
-    const P = (along, across, h) => [d[0] * along + n[0] * across, d[1] * along + n[1] * across, h];
-    const appRing = [P(r0, -w0 / 2, 0), P(r0, w0 / 2, 0), P(r0 + LEN, endW / 2, H), P(r0 + LEN, -endW / 2, H), P(r0, -w0 / 2, 0)];
+    s.endW = endW;
+    s.courseMag = magCourse(s.course, decl);
+    const hw = dist => w0 / 2 + (endW - w0) / 2 * dist / LEN;
+    // Point `across` ft to the right of the centerline (looking out), `dist` ft out, at height h.
+    const at = (dist, across, h) => { const c = centerlineAt(s, dist), nn = unit(c.hdg + 90); return [c.x + nn[0] * across, c.y + nn[1] * across, h]; };
+    const st = centerlineStations(s, LEN);
+    s.stations = st;
+    const end = centerlineAt(s, LEN);
+    s.end = [end.x, end.y]; s.endHdg = end.hdg;
+    const appRing = [at(0, -hw(0), 0), ...st.map(t => at(t, hw(t), t / s.slope)), ...st.slice(1).reverse().map(t => at(t, -hw(t), t / s.slope))];
+    appRing.push(appRing[0]);
     const pname = `Path ${s.label} (course ${String(Math.round(s.course)).padStart(3, "0")}°T)`;
-    add("approach", `Approach/departure surface, ${pname}`, appRing, "surface",
-      { path: s.label, course_true: +s.course.toFixed(1), surface_bearing_true: +s.bearing.toFixed(1), slope: `${s.slope}:1`, length_ft: LEN, inner_width_ft: +w0.toFixed(1), outer_width_ft: endW, outer_height_ft: +H.toFixed(1) });
+    const cprops = s.curve ? { curve: s.curve.dir, straight_leg_ft: s.curve.straight, curve_radius_ft: s.curve.radius, turn_deg: +s.curve.turn.toFixed(1), faa_evaluated: "no (curved surfaces are not evaluated or charted, 4.7)" } : {};
+    add("approach", `Approach/departure surface, ${pname}${s.curve ? `, curving ${s.curve.dir}` : ""}`, appRing, "surface",
+      { path: s.label, course_true: +s.course.toFixed(1), course_magnetic: +s.courseMag.toFixed(1), surface_bearing_true: +s.bearing.toFixed(1), slope: `${s.slope}:1`, length_ft: LEN, inner_width_ft: +w0.toFixed(1), outer_width_ft: endW, outer_height_ft: +H.toFixed(1), ...cprops });
 
+    // The HPZ is the first 280 ft, always inside the straight leg (at least 1,000 ft).
     const hpzW = w0 + (endW - w0) * HPZ / LEN;
-    add("hpz", `Heliport protection zone, ${pname}`, [P(r0, -w0 / 2, 0), P(r0, w0 / 2, 0), P(r0 + HPZ, hpzW / 2, 0), P(r0 + HPZ, -hpzW / 2, 0), P(r0, -w0 / 2, 0)], "ground",
+    add("hpz", `Heliport protection zone, ${pname}`, [at(0, -w0 / 2, 0), at(0, w0 / 2, 0), at(HPZ, hpzW / 2, 0), at(HPZ, -hpzW / 2, 0), at(0, -w0 / 2, 0)], "ground",
       { path: s.label, length_ft: HPZ, outer_width_ft: +hpzW.toFixed(1) });
 
     if (w0 / 2 < TRANS_OUT) {
       [-1, 1].forEach(side => {
-        const hOut = (TRANS_OUT - w0 / 2) / 2;
-        const ring = [P(r0, side * w0 / 2, 0), P(r0 + LEN, side * endW / 2, H), P(r0, side * TRANS_OUT, hOut), P(r0, side * w0 / 2, 0)];
+        // Inner edge on the approach surface; outer edge 250 ft from the centerline, 2:1 up from the inner edge.
+        const inner = st.map(t => at(t, side * hw(t), t / s.slope));
+        const outer = st.filter(t => TRANS_OUT - hw(t) > 0.01).map(t => at(t, side * TRANS_OUT, t / s.slope + (TRANS_OUT - hw(t)) / 2));
+        const ring = inner.concat(outer.reverse()); ring.push(ring[0]);
         add("transitional", `Transitional surface, ${pname}, ${side < 0 ? "left" : "right"}`, ring, "surface", { path: s.label, slope: "2:1", extends_to_ft_from_centerline: TRANS_OUT });
       });
     }
@@ -644,22 +848,44 @@ function computeDesign(p) {
 
   // Path checks
   paths.forEach((pa, i) => {
-    if (p.category === "pl" && +pa.slope < 15) msgs.push(["bad", `Path ${i + 1}: powered-lift critical aircraft need an approach surface of 15:1 or shallower (4.7.1.1).`]);
+    if (p.category === "pl" && +pa.slope < 15) flag(i, "bad", `Path ${i + 1}: powered-lift critical aircraft need an approach surface of 15:1 or shallower (4.7.1.1(4)).`);
     if (+pa.slope > 8) msgs.push(["info", `Path ${i + 1}: FAA evaluates obstructions only against 8:1 under Part 77. A ${pa.slope}:1 surface is not protected or used in charting; note it in ADIP.`]);
   });
-  if (paths.length === 1 && !paths[0].recip) msgs.push(["info", "One surface only. Where a reciprocal surface is not possible, the AC calls for a second surface at least 135° away."]);
+  // 4.7.1.1(10): curved path limits.
+  surfaces.filter(s => s.curve).forEach(s => {
+    const cv = s.curve, i = s.idx, P = `Path ${s.label}`;
+    if (cv.straight < CURVE_MIN.straight - 0.01) flag(i, "bad", `${P}: the straight leg before the curve is ${Math.round(cv.straight)} ft. The AC requires at least 1,000 ft (4.7.1.1(10)(b)).`);
+    if (cv.radius < CURVE_MIN.radius - 0.01) flag(i, "bad", `${P}: the curve radius is ${Math.round(cv.radius)} ft. The AC requires at least 886 ft (4.7.1.1(10)(b)).`);
+    if (cv.straight + cv.radius < CURVE_MIN.sum - 0.01) flag(i, "bad", `${P}: the straight leg plus the radius is ${Math.round(cv.straight + cv.radius).toLocaleString("en-US")} ft. The AC requires at least 1,886 ft (4.7.1.1(10)(a)).`);
+    if (cv.askedTurn > cv.maxTurn + 0.05) flag(i, "warn", `${P}: a ${Math.round(cv.askedTurn)}° turn doesn't fit in the 4,000 ft surface with this straight leg and radius, so the turn is cut to ${Math.round(cv.maxTurn)}°.`);
+    msgs.push(["info", `${P} curves ${cv.dir} ${Math.round(cv.turn)}° after a ${Math.round(cv.straight).toLocaleString("en-US")} ft straight leg, on an ${Math.round(cv.radius).toLocaleString("en-US")} ft radius. The FAA does not evaluate curved surfaces for obstructions or consider them in charting (4.7), so protect this one locally.`]);
+  });
+  // 3.3.1.1(3): at least two approach/departure paths, reciprocal in heading or at least 135 degrees apart.
+  // Met when any two surfaces are 135 degrees or more apart (a reciprocal pair is 180).
+  let bestSep = 0;
+  surfaces.forEach((s, a) => surfaces.forEach((o, b) => { if (b > a) bestSep = Math.max(bestSep, angDiff(s.bearing, o.bearing)); }));
+  const sepOk = bestSep >= 135 - 0.5;
+  if (paths.length && surfaces.length < 2) flag(0, "bad", "Only one approach/departure surface. 3.3.1.1(3) requires at least two: make Path 1 reciprocal, or add a second path at least 135° away.");
+  const pairsSaid = new Set();   // report each close pair once, but mark both paths
   surfaces.forEach(s => {
-    if (s.recip) return;
-    let near = 360;
-    surfaces.forEach(o => { if (o !== s) near = Math.min(near, angDiff(s.bearing, o.bearing)); });
-    if (near < 135 && surfaces.length > 1) msgs.push(["warn", `Path ${s.label} surface is ${near.toFixed(0)}° from the nearest other surface; the AC calls for at least 135° when no reciprocal is used.`]);
+    if (s.recip || surfaces.length < 2) return;
+    let near = 360, other = null;
+    surfaces.forEach(o => { if (o !== s && angDiff(s.bearing, o.bearing) < near) { near = angDiff(s.bearing, o.bearing); other = o; } });
+    if (near >= 135 - 0.5) return;
+    const key = [s.label, other.label].sort().join("|"), said = pairsSaid.has(key); pairsSaid.add(key);
+    const text = `Paths ${[s.label, other.label].sort().join(" and ")} are ${near.toFixed(0)}° apart.`;
+    if (!sepOk) {
+      const t = `${text} 3.3.1.1(3) requires two paths that are reciprocal or at least 135° apart.`;
+      if (said) pathFlags[s.idx].push(["bad", t]); else flag(s.idx, "bad", t);
+    } else if (!said) msgs.push(["info", `${text} That is fine for an additional path, because another pair of paths already meets 3.3.1.1(3).`]);
   });
   const axisAligned = s => [0, 90, 180, 270].some(k => angDiff(s.bearing, axisBearing + k) < 0.5);
   if (isRect && surfaces.some(s => !axisAligned(s))) msgs.push(["info", "A path is not square to the FATO. Its surface starts where it leaves the FATO and its inner width is the FATO's width seen across that path."]);
   if (D > 0 && RD > D) msgs.push(["warn", "RD is larger than D. D should enclose the whole aircraft, so it is normally at least RD."]);
 
   return {
-    tlof, tlofRule, W, L, fatoRule, labels, elevAdd, sa, saRule, heliportElev, elevated, surfaces, features, msgs, dcaOk,
+    tlof, tlofRule, W, L, fatoRule, labels, elevAdd, sa, saRule, heliportElev, elevated, surfaces, features, msgs, dcaOk, decl, decYear, pathFlags,
+    failed: msgs.filter(m => m[0] === "bad").map(m => m[1]),
     overall: isRect ? { length: L + 2 * sa, width: W + 2 * sa } : { length: W + 2 * sa, width: W + 2 * sa },
   };
 }
@@ -696,19 +922,27 @@ function buildKML(design, site) {
     const fs = design.features.filter(f => els.includes(f.element));
     return fs.length ? `<Folder><name>${esc(title)}</name>${fs.map(pm).join("")}</Folder>` : "";
   };
+  const failed = design.failed || [];
+  const status = failed.length
+    ? `<tr><td><b>Status</b></td><td><b style="color:#d70015">NON-STANDARD.</b> This layout does not meet draft AC 150/5390-4:<ul>${failed.map(t => `<li>${esc(t)}</li>`).join("")}</ul></td></tr>`
+    : `<tr><td>Status</td><td>Meets the draft AC checks this planner runs</td></tr>`;
   const summary = `<table>
+${status}
 <tr><td>Design aircraft</td><td>${esc(site.aircraft)}</td></tr>
 <tr><td>D / RD / MTOW</td><td>${ff(site.D)} ft / ${ff(site.RD)} ft / ${esc(site.mtow || "n/a")} lb</td></tr>
 <tr><td>TLOF</td><td>${ff(design.tlof)} ft (${esc(design.tlofRule)})</td></tr>
 <tr><td>FATO</td><td>${ff(design.L)} x ${ff(design.W)} ft (${esc(design.fatoRule)})</td></tr>
 <tr><td>Safety area</td><td>${ff(design.sa)} ft each side</td></tr>
 <tr><td>Heliport elevation</td><td>${ff(design.heliportElev)} ft MSL</td></tr>
-${design.surfaces.map(s => `<tr><td>Path ${s.label}</td><td>course ${Math.round(s.course)}°T, ${s.slope}:1, ${ff(s.endHeight)} ft above heliport at 4,000 ft</td></tr>`).join("")}
+${design.surfaces.map(s => `<tr><td>Path ${s.label}</td><td>course ${Math.round(s.course)}°T (${Math.round(s.courseMag)}°M), ${s.slope}:1, ${ff(s.endHeight)} ft above heliport at 4,000 ft${s.curve ? `, curving ${s.curve.dir} ${Math.round(s.curve.turn)}° after ${Math.round(s.curve.straight)} ft (radius ${Math.round(s.curve.radius)} ft)` : ""}</td></tr>`).join("")}
+<tr><td>Magnetic declination</td><td>${esc(declText(design.decl))} (WMM2025, ${design.decYear.toFixed(1)})</td></tr>
 </table><p>Generated from draft AC 150/5390-4 (10/22/2026). Planning sketch, not a design approval.</p>`;
+  const ext = `<ExtendedData><Data name="non_standard"><value>${failed.length ? "true" : "false"}</value></Data>${failed.length ? `<Data name="failed_checks"><value>${esc(failed.join(" | "))}</value></Data>` : ""}<Data name="magnetic_declination_deg"><value>${design.decl.toFixed(2)}</value></Data></ExtendedData>`;
   return `<?xml version="1.0" encoding="UTF-8"?>
-<kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>${esc(site.name)}</name>
+<kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>${esc(site.name)}${failed.length ? " (non-standard)" : ""}</name>${failed.length ? `<Snippet maxLines="2">Non-standard: ${esc(failed.length === 1 ? failed[0] : failed.length + " checks failed. Open the site placemark for the list.")}</Snippet>` : ""}
 <LookAt><longitude>${site.lon}</longitude><latitude>${site.lat}</latitude><altitude>0</altitude><heading>${design.surfaces[0] ? design.surfaces[0].course.toFixed(0) : 0}</heading><tilt>60</tilt><range>2200</range><altitudeMode>relativeToGround</altitudeMode></LookAt>
 ${styles}
+${ext}
 <Placemark><name>${esc(site.name)}</name><description><![CDATA[${summary}]]></description><Point><coordinates>${site.lon},${site.lat},0</coordinates></Point></Placemark>
 ${group("Pad areas", ["tlof", "fato", "safety"])}
 ${group("TLOF markings", ["marking"])}
@@ -721,13 +955,18 @@ ${group("Transitional surfaces", ["transitional"])}
 
 function buildGeoJSON(design, site) {
   const prj = makeProjector(site.lat, site.lon);
+  const failed = design.failed || [];
   return JSON.stringify({
     type: "FeatureCollection",
-    name: site.name,
+    name: site.name + (failed.length ? " (non-standard)" : ""),
+    non_standard: failed.length > 0,
+    failed_checks: failed,
+    magnetic_declination_deg: +design.decl.toFixed(2),
     crs: { type: "name", properties: { name: "urn:ogc:def:crs:OGC:1.3:CRS84" } },
     features: design.features.map(f => ({
       type: "Feature",
-      properties: { name: f.name, element: f.element, altitude_ref: f.alt === "ground" ? "ground" : "absolute_m_msl", ...f.props, source: "draft AC 150/5390-4 (10/22/2026)" },
+      properties: { name: f.name, element: f.element, altitude_ref: f.alt === "ground" ? "ground" : "absolute_m_msl", ...f.props,
+        non_standard: failed.length > 0, ...(failed.length ? { failed_checks: failed.join(" | ") } : {}), source: "draft AC 150/5390-4 (10/22/2026)" },
       geometry: { type: "Polygon", coordinates: [f.ring.map(([x, y, h]) => {
         const [la, lo] = prj.toLL(x, y); const a = vertexAltFt(design, f.alt, h);
         return [+lo.toFixed(8), +la.toFixed(8), a == null ? 0 : +(a * FT).toFixed(2)];
@@ -736,7 +975,41 @@ function buildGeoJSON(design, site) {
   }, null, 1);
 }
 
-if (typeof module !== "undefined") module.exports = { computeDesign, buildKML, buildGeoJSON, fatoElevationAddition, makeProjector };
+// ---------- Wind analysis, 3.3.1.1(1) and (2); method as in AC 150/5300-13B, Appendix B ----------
+// Observations are binned by direction (10° steps, as METARs report them) and whole knots.
+// w = { n: all observations, calm, dir: 36 maps of knots -> count (index i = wind from i*10°), vrb: map of knots -> count }
+function windBins(obs) {
+  const w = { n: 0, calm: 0, dir: Array.from({ length: 36 }, () => ({})), vrb: {} };
+  obs.forEach(([d, v]) => {
+    if (!(v >= 0)) return;
+    const kt = Math.round(v); w.n++;
+    if (kt === 0) { w.calm++; return; }
+    if (d == null || !isFinite(d) || d <= 0) { w.vrb[kt] = (w.vrb[kt] || 0) + 1; return; }  // VRB, or no direction given
+    const i = Math.round(norm360(d) / 10) % 36; w.dir[i][kt] = (w.dir[i][kt] || 0) + 1;
+  });
+  return w;
+}
+// Does an aircraft flying `course` cope with wind from `from` at `kt`? Crosswind within xw, tailwind within tw.
+const windOk = (from, kt, course, xw, tw) => { const a = (from - course) * Math.PI / 180; return Math.abs(kt * Math.sin(a)) <= xw + 1e-9 && kt * Math.cos(a) >= -tw - 1e-9; };
+// Share of all observations (calms included) that at least one of `courses` can use. A variable wind counts
+// only if every direction would be covered at that speed.
+function windCoverage(w, courses, xw, tw) {
+  if (!w || !w.n || !courses.length) return 0;
+  let ok = w.calm;
+  w.dir.forEach((m, i) => Object.entries(m).forEach(([kt, n]) => { if (courses.some(c => windOk(i * 10, +kt, c, xw, tw))) ok += n; }));
+  Object.entries(w.vrb).forEach(([kt, n]) => { let all = true; for (let d = 0; d < 360 && all; d += 10) all = courses.some(c => windOk(d, +kt, c, xw, tw)); if (all) ok += n; });
+  return ok / w.n;
+}
+// Best single course, best reciprocal pair, and the most frequent wind direction.
+function windBest(w, xw, tw) {
+  let one = { c: 0, cov: -1 }, pair = { c: 0, cov: -1 };
+  for (let c = 0; c < 360; c++) { const v = windCoverage(w, [c], xw, tw); if (v > one.cov + 1e-12) one = { c, cov: v }; }
+  for (let c = 0; c < 180; c++) { const v = windCoverage(w, [c, c + 180], xw, tw); if (v > pair.cov + 1e-12) pair = { c, cov: v }; }
+  const tot = w.dir.map(m => Object.values(m).reduce((a, b) => a + b, 0)), top = tot.indexOf(Math.max(...tot));
+  return { one, pair, prevailing: top * 10 || 360, prevailingShare: tot[top] / w.n };
+}
+
+if (typeof module !== "undefined") module.exports = { computeDesign, buildKML, buildGeoJSON, fatoElevationAddition, makeProjector, magDeclination, decimalYear, centerlineAt, curveSpec, windBins, windCoverage, windBest };
 </script>
 
 <script>
@@ -765,9 +1038,12 @@ const INFO = {
   deck: ["Deck height", `<p>Height of the landing surface above the surrounding ground. Use 0 for a ground-level pad.</p><p>A pad 30 inches (2.5 ft) or more above the ground counts as elevated, such as a rooftop.</p><p class="src">Draft AC 4.2.1</p>`],
   fatoLB: ["Load-bearing FATO", `<p>Turn this off if only the TLOF can carry the aircraft's weight, which is common on rooftops. On an elevated pad with a non-load-bearing FATO, the TLOF grows by 20%.</p><p class="src">Draft AC 4.2.1.4</p>`],
   hsym: ["H and VTL markings", `<p>Every heliport and vertiport uses the same <b>H</b>, 10 ft tall, centered in the TLOF. There is no separate "V" symbol.</p><p>When the design aircraft is powered lift, add <b>VTL</b> in the top-left corner of the TLOF (P-VTL at a private-use site; PVT for a private heliport with a helicopter design aircraft). A box in the lower-right corner shows the weight limit in thousands of pounds over the rotor diameter. All three are read upright by a pilot flying Path 1, with a short bar below the H marking that direction.</p><p>Without the standard H, the safety area grows by 10 ft on every side.</p><p class="src">Draft AC 4.4.1.4, 4.8.1.1 and Figure 4-15</p>`],
-  course: ["Course", `<p>The heading the aircraft flies on final approach, in degrees from true north (not magnetic).</p><p>A course of 230° means the aircraft flies southwest toward the pad, so the approach surface lies to the northeast.</p><p>Drag the numbered handle on the 2D map to set it by eye.</p>`],
+  course: ["Course", `<p>The direction the aircraft flies on final approach, in degrees from true north. The magnetic course shows beside it, for charts and for the AC's "reciprocal in magnetic heading" wording.</p><p>A course of 230° means the aircraft flies southwest toward the pad, so the approach surface lies to the northeast.</p><p>Drag the numbered handle on the 2D map to set it by eye.</p><p class="src">Magnetic courses use the World Magnetic Model 2025 (NOAA), at the pad, for today's date. Draft AC 3.3.1.1(3)</p>`],
+  curve: ["Curved path", `<p>A curved surface starts straight from the FATO and then turns. Left and right are as seen from the pad looking out along the surface, which is the way a departing aircraft turns.</p><ul><li>Straight leg: at least 1,000 ft.</li><li>Radius: at least 886 ft.</li><li>Straight leg plus radius: at least 1,886 ft.</li><li>The centerline totals 4,000 ft. Any length left after the turn continues straight.</li></ul><p>The FAA does not evaluate curved surfaces for obstructions or show them in charting, so a sponsor has to protect them locally. A reciprocal surface on the other side stays straight.</p><p class="src">Draft AC 4.7, 4.7.1.1(10), 4.7.1.3 and Figure 4-11</p>`],
+  wind: ["Wind analysis", `<p>The AC requires a wind analysis to pick the primary approach path, using at least the last ten years of observations, calms included, and paths aligned with the prevailing wind.</p><p><b>Run Wind Analysis</b> downloads ten full years of hourly reports from the chosen ASOS or AWOS station through the Iowa Environmental Mesonet. It takes a minute and is saved in this browser for next time.</p><p>The wind rose shows how often wind blows from each direction, by speed. The numbered lines are your paths, drawn at their approach course: an aircraft on that course lands into wind from that direction.</p><p>Pick the station nearest the pad with similar terrain. An airport a few miles away can see different winds than a rooftop downtown.</p><p class="src">Draft AC 3.3.1.1(1) and (2); method from AC 150/5300-13B, Appendix B</p>`],
+  windLimits: ["Wind limits", `<p>An hour counts as usable on a path when the crosswind is within the crosswind limit and any tailwind is within the tailwind limit. Calm hours always count. A variable wind counts only if every direction would be usable at that speed.</p><p>Use the critical aircraft's demonstrated limits from the manufacturer. 10.5 kt is the smallest crosswind limit in AC 150/5300-13B and is a cautious starting point. A tailwind limit of 0 means landings only into wind.</p><p class="src">Draft AC 3.3.1.1(4); AC 150/5300-13B, Appendix B</p>`],
   slope: ["Approach slope", `<p>How steeply the protected surface rises. 8:1 means 1 ft up for every 8 ft out; 15:1 is flatter.</p><p>Helicopters: 8:1 or flatter. Powered lift: 15:1 or flatter. The FAA checks obstacles only against 8:1 under Part 77, so a flatter surface is for planning and is not protected.</p><p class="src">Draft AC 4.7.1.1</p>`],
-  recip: ["Reciprocal", `<p>Adds the same surface on the opposite side of the pad, so aircraft can arrive and depart in both directions. Where that isn't possible, the AC calls for a second path at least 135° away.</p>`],
+  recip: ["Reciprocal", `<p>Adds the same surface on the opposite side of the pad, so aircraft can arrive and depart in both directions.</p><p>The AC requires at least two approach/departure paths that are reciprocal or, where that isn't feasible, at least 135° apart. This is a standard, not a recommendation, so a layout that misses it is marked non-standard.</p><p class="src">Draft AC 3.3.1.1(3)</p>`],
   tlof: ["TLOF", `<p>Touchdown and liftoff area. The load-bearing surface the aircraft lands on. Minimum size: RD + 10 ft.</p><p class="src">Draft AC 4.2</p>`],
   fato: ["FATO", `<p>Final approach and takeoff area. Where the approach ends and takeoff begins. Minimum size is 1.5 D, and its edge must sit at least 0.34 D outside the TLOF. The larger of the two governs.</p><p class="src">Draft AC 4.3</p>`],
   safety: ["Safety area", `<p>A clear border around the FATO, 0.28 D wide and at least 20 ft. Nothing may stick up above the FATO here except fixed-by-function equipment.</p><p class="src">Draft AC 4.4</p>`],
@@ -787,7 +1063,8 @@ const DEFAULT = {
   name: "Example vertiport", lat: 36.127455, lon: -80.252075, groundElev: 980,
   category: "pl", preset: "custom", D: 50, RD: 45, mtow: 7000,
   shape: "square", fatoLen: 0, deck: 0, fatoLoadBearing: true, hSymbol: true,
-  paths: [{ course: 346, slope: 15, recip: false }, { course: 112, slope: 15, recip: false }], basemap: "sat",
+  paths: [{ course: 346, slope: 15, recip: false }, { course: 126, slope: 15, recip: false }], basemap: "sat",
+  wind: { station: "", xw: 10.5, tw: 0 },
 };
 let S = JSON.parse(JSON.stringify(DEFAULT));
 try { const saved = JSON.parse(localStorage.getItem("vsp-state") || "null"); if (saved && saved.paths) S = { ...S, ...saved }; } catch (e) {}
@@ -837,27 +1114,57 @@ function writeForm() {
   renderPaths();
 }
 const pad3 = n => String(Math.round(((n % 360) + 360) % 360)).padStart(3, "0");
+const siteDecl = () => design ? design.decl : magDeclination(S.lat, S.lon, decimalYear());
+const CURVE_LABEL = { none: "Straight", left: "Left", right: "Right" };
 function renderPaths() {
+  const decl = siteDecl();
   $("paths").innerHTML = S.paths.map((p, i) => {
     const slopes = [8, 15, 20].includes(+p.slope) ? [8, 15, 20] : [8, 15, 20, +p.slope];
-    return `<div class="grp">
-      <div class="cell"><span class="ptitle"><span class="pnum">${i + 1}</span>Path ${i + 1}</span><span class="pdir">Surface toward ${pad3(+p.course + 180)}°</span>${S.paths.length > 1 ? `<button class="del" data-del="${i}">Remove</button>` : ""}</div>
-      <div class="cell"><span class="lab">Course<button class="info" data-info="course" aria-label="About course"></button></span><span class="val"><input type="number" id="pc${i}" data-i="${i}" data-k="course" step="1" min="0" max="359" value="${Math.round(p.course)}"><span class="unit">°T</span></span></div>
+    const cv = p.curve === "left" || p.curve === "right" ? p.curve : "none";
+    const num = (k, label, unit, step, min, info) => `<div class="cell"><span class="lab">${label}${info ? `<button class="info" data-info="${info}" aria-label="About ${label.toLowerCase()}"></button>` : ""}</span><span class="val"><input type="number" data-i="${i}" data-k="${k}" step="${step}" min="${min}" value="${Math.round(+p[k])}" aria-label="${label} for path ${i + 1}"><span class="unit">${unit}</span></span></div>`;
+    return `<div class="grp" id="pg${i}">
+      <div class="cell"><span class="ptitle"><span class="pnum">${i + 1}</span>Path ${i + 1}</span><span class="pdir">Surface toward ${pad3(+p.course + 180)}°T</span>${S.paths.length > 1 ? `<button class="del" data-del="${i}">Remove</button>` : ""}</div>
+      <div class="cell"><span class="lab">Course<button class="info" data-info="course" aria-label="About course"></button></span><span class="val"><input type="number" id="pc${i}" data-i="${i}" data-k="course" step="1" min="0" max="359" value="${Math.round(p.course)}" aria-label="Course for path ${i + 1}, degrees true"><span class="unit">°T</span><span class="mag" id="pm${i}" title="Magnetic course">${pad3(magCourse(+p.course, decl))}°M</span></span></div>
       <div class="cell"><span class="lab">Slope<button class="info" data-info="slope" aria-label="About slope"></button></span><div class="segc" role="group" aria-label="Slope for path ${i + 1}">${slopes.map(s => `<button data-i="${i}" data-slope="${s}" aria-pressed="${+p.slope === s}">${s}:1</button>`).join("")}</div></div>
       <div class="cell"><span class="lab">Reciprocal<button class="info" data-info="recip" aria-label="About reciprocal"></button></span><input class="switch" type="checkbox" id="pr${i}" data-i="${i}" data-k="recip" ${p.recip ? "checked" : ""} aria-label="Reciprocal for path ${i + 1}"></div>
+      <div class="cell"><span class="lab">Curve<button class="info" data-info="curve" aria-label="About curved paths"></button></span><div class="segc" role="group" aria-label="Curve for path ${i + 1}">${Object.keys(CURVE_LABEL).map(k => `<button data-i="${i}" data-curve="${k}" aria-pressed="${cv === k}">${CURVE_LABEL[k]}</button>`).join("")}</div></div>
+      ${cv === "none" ? "" : `<div class="subcells">${num("straight", "Straight leg", "ft", 50, 0)}${num("radius", "Radius", "ft", 10, 1)}${num("turn", "Turn", "°", 5, 0)}</div>`}
+      <div class="cell pflag" id="pf${i}" hidden></div>
     </div>`;
   }).join("");
   decorateInfo($("paths"));
+  flagPaths();
+}
+// Mark paths that break a standard (red) or need attention (orange), with the reason under the path.
+function flagPaths() {
+  if (!design) return;
+  const decl = design.decl;
+  $("declNote").textContent = `true north · declination ${declText(decl)}`;
+  S.paths.forEach((p, i) => {
+    const g = $("pg" + i); if (!g) return;
+    const f = (design.pathFlags && design.pathFlags[i]) || [], bad = f.some(x => x[0] === "bad"), warn = !bad && f.length;
+    g.classList.toggle("flag-bad", bad); g.classList.toggle("flag-warn", !!warn);
+    const pf = $("pf" + i); pf.hidden = !f.length; pf.classList.toggle("warn", !!warn);
+    pf.innerHTML = f.map(x => `<p>${x[1]}</p>`).join("");
+    const pm = $("pm" + i); if (pm) pm.textContent = `${pad3(magCourse(+p.course, decl))}°M`;
+  });
 }
 $("paths").addEventListener("input", e => {
   const t = e.target, i = +t.dataset.i, k = t.dataset.k; if (!k) return;
   S.paths[i][k] = k === "recip" ? t.checked : +t.value;
-  if (k === "course") { const pd = t.closest(".grp").querySelector(".pdir"); if (pd) pd.textContent = `Surface toward ${pad3(+t.value + 180)}°`; }
+  if (k === "course") { const pd = t.closest(".grp").querySelector(".pdir"); if (pd) pd.textContent = `Surface toward ${pad3(+t.value + 180)}°T`; }
   update();
 });
 $("paths").addEventListener("click", e => {
   const del = e.target.closest("[data-del]"); if (del) { S.paths.splice(+del.dataset.del, 1); renderPaths(); update(); return; }
-  const sb = e.target.closest("[data-slope]"); if (sb) { S.paths[+sb.dataset.i].slope = +sb.dataset.slope; renderPaths(); update(); }
+  const sb = e.target.closest("[data-slope]"); if (sb) { S.paths[+sb.dataset.i].slope = +sb.dataset.slope; renderPaths(); update(); return; }
+  const cb = e.target.closest("[data-curve]");
+  if (cb) {
+    const p = S.paths[+cb.dataset.i], k = cb.dataset.curve;
+    p.curve = k === "none" ? undefined : k;
+    if (k !== "none") { if (!(+p.straight > 0)) p.straight = 1000; if (!(+p.radius > 0)) p.radius = 886; if (!isFinite(+p.turn)) p.turn = 90; }
+    renderPaths(); update();
+  }
 });
 $("addPath").onclick = () => {
   if (S.paths.length >= 4) return;
@@ -896,6 +1203,8 @@ function update(recenter) {
   design = computeDesign(S);
   draw();
   results();
+  flagPaths();
+  windRefresh();
   centerMarker.setLatLng([S.lat, S.lon]);
   if (recenter) fitPad();
   if (mode3d) render3d(recenter);
@@ -940,15 +1249,16 @@ function draw() {
   handles.forEach(h => map.removeLayer(h)); handles = [];
   const prj = makeProjector(S.lat, S.lon);
   design.surfaces.filter(s => !/R$/.test(s.label)).forEach(s => {
-    const pIdx = s.path - 1, r = s.r0 + 4000, d = [Math.sin(s.bearing * Math.PI / 180), Math.cos(s.bearing * Math.PI / 180)];
-    const m = L.marker(prj.toLL(d[0] * r, d[1] * r), { draggable: true, icon: L.divIcon({ className: "", html: `<div class="handle">${s.path}</div>`, iconSize: [28, 28], iconAnchor: [14, 14] }) }).addTo(map);
-    m.bindTooltip(`Drag to aim path ${s.path}`, { direction: "top", offset: [0, -14] });
+    // On a curved path the handle sits at the end of the straight leg, so dragging it aims the straight leg.
+    const pIdx = s.path - 1, c = centerlineAt(s, s.curve ? Math.min(s.curve.straight, 4000) : 4000);
+    const m = L.marker(prj.toLL(c.x, c.y), { draggable: true, icon: L.divIcon({ className: "", html: `<div class="handle">${s.path}</div>`, iconSize: [28, 28], iconAnchor: [14, 14] }) }).addTo(map);
+    m.bindTooltip(s.curve ? `Drag to aim path ${s.path}'s straight leg` : `Drag to aim path ${s.path}`, { direction: "top", offset: [0, -14] });
     m.on("drag", ev => {
       const [x, y] = prj.toXY(ev.latlng.lat, ev.latlng.lng);
       const bearing = (Math.atan2(x, y) * 180 / Math.PI + 360) % 360;
       S.paths[pIdx].course = Math.round((bearing + 180) % 360);
       const inp = $("pc" + pIdx); if (inp) inp.value = S.paths[pIdx].course;
-      design = computeDesign(S); drawShapes(false); results();
+      design = computeDesign(S); drawShapes(false); results(); flagPaths();
     });
     m.on("dragend", () => { renderPaths(); update(); });
     handles.push(m);
@@ -968,7 +1278,7 @@ function results() {
     ["safety", "Safety area", `${f1(d.sa)} ft`, "each side"],
     ["hpz", "Protection zone", "280 ft", "from FATO edge"],
     ["dca", "Downwash caution area", d.dcaOk ? "780 × 420 ft" : "Not defined", d.dcaOk ? "per path" : "over 7,000 lb"],
-    ...d.surfaces.map(s => ["approach", `Path ${s.label} surface`, `${s.slope}:1`, `course ${pad3(s.course)}°T`]),
+    ...d.surfaces.map(s => ["approach", `Path ${s.label} surface`, `${s.slope}:1${s.curve ? `, curves ${s.curve.dir}` : ""}`, `course ${pad3(s.course)}°T · ${pad3(s.courseMag)}°M`]),
     [null, "Heliport elevation", `${Math.round(d.heliportElev).toLocaleString("en-US")} ft`, d.elevated ? "MSL, elevated" : "MSL"],
   ];
   $("res").innerHTML = rows.map(([k, t, v, r]) => `<div class="cell"><span class="lab">${k ? `<span class="sw" style="background:${COLORS[k]}"></span>` : ""}${t}${k ? `<button class="info" data-info="${k}" aria-label="About ${t}"></button>` : ""}</span><span class="rv">${v}<small>${r}</small></span></div>`).join("");
@@ -1346,7 +1656,7 @@ $("airOn").addEventListener("change", async () => {
   await refreshAir();
   if (S.airspace && mode3d && viewer) flyAirspace();
 });
-$("camAir").onclick = () => flyAirspace();
+$("camAir").onclick = () => { if (typeof simStop === "function") simStop(); flyAirspace(); };
 
 map.on("click", e => { $("lat").value = e.latlng.lat.toFixed(6); $("lon").value = e.latlng.lng.toFixed(6); update(); lookupElev(); });
 centerMarker.on("dragend", e => { const p = e.target.getLatLng(); $("lat").value = p.lat.toFixed(6); $("lon").value = p.lng.toFixed(6); update(); lookupElev(); });
@@ -1386,6 +1696,146 @@ async function search() {
 }
 $("q").addEventListener("keydown", e => { if (e.key === "Enter") search(); });
 
+// ---------- Wind analysis (3.3.1.1): ten full years of hourly ASOS/AWOS reports from the Iowa Environmental Mesonet ----------
+const WIND_YEARS = 10, KT_CLASSES = [[1, 5], [6, 10], [11, 16], [17, 21], [22, 999]];
+const KT_COLORS = ["#86b6ef", "#5598e7", "#2a78d6", "#1c5cab", "#104281"];   // one-hue ordinal ramp, validated
+const windPeriod = () => { const y2 = new Date().getUTCFullYear() - 1; return [y2 - WIND_YEARS + 1, y2]; };
+const wind = { stations: null, near: [], nearKey: "", data: null, dataKey: "", busy: false };
+if (!S.wind) S.wind = { station: "", xw: 10.5, tw: 0 };
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+function loadStationData() {
+  if (window.ASOS_STATIONS) return Promise.resolve();
+  if (wind.script) return wind.script;
+  wind.script = new Promise((res, rej) => {
+    const el = document.createElement("script"); el.src = "data/asos-stations.js";
+    el.onload = res; el.onerror = () => { wind.script = null; rej(new Error("station list did not load")); };
+    document.head.appendChild(el);
+  });
+  return wind.script;
+}
+async function windStations() {
+  const key = `${S.lat.toFixed(2)},${S.lon.toFixed(2)}`;
+  if (key === wind.nearKey) return;
+  try { await loadStationData(); } catch (e) { $("windFoot").textContent = "The station list didn't load. Check that the data folder is next to the planner file."; return; }
+  const [y1, y2] = windPeriod();
+  const all = ASOS_STATIONS.rows.map(r => ({ id: r[0], name: titleCase(String(r[1]).replace(/_/g, " ").replace(/\s*\((?:ASOS|AWOS)[^)]*\)\s*$/i, "")), lat: r[2], lon: r[3], from: r[4], to: r[5], mi: milesBetween(S.lat, S.lon, r[2], r[3]) }))
+    .filter(s => s.mi <= 75).sort((a, b) => a.mi - b.mi);
+  const full = s => s.from <= y1 && (s.to == null || s.to >= y2);
+  wind.near = all.filter(full).slice(0, 8);
+  if (!wind.near.length) wind.near = all.slice(0, 8);
+  wind.nearKey = key;
+  const sel = $("windStation");
+  sel.innerHTML = wind.near.length ? wind.near.map(s => `<option value="${s.id}">${s.id} ${esc(s.name)} · ${fmtMi(s.mi)} mi${full(s) ? "" : " (short record)"}</option>`).join("") : '<option value="">None within 75 miles</option>';
+  if (!wind.near.some(s => s.id === S.wind.station)) S.wind.station = wind.near.length ? wind.near[0].id : "";
+  sel.value = S.wind.station;
+  $("windRun").disabled = !S.wind.station;
+}
+const windCacheKey = (id, [y1, y2]) => `vsp-wind:${id}:${y1}-${y2}`;
+function windFromCache() {
+  const per = windPeriod(), k = windCacheKey(S.wind.station, per);
+  if (wind.dataKey === k) return true;
+  try { const j = JSON.parse(localStorage.getItem(k) || "null"); if (j && j.n) { wind.data = j; wind.dataKey = k; return true; } } catch (e) {}
+  return false;
+}
+async function fetchWindYear(id, y) {
+  const url = `https://mesonet.agron.iastate.edu/cgi-bin/request/asos.py?station=${encodeURIComponent(id)}&data=drct&data=sknt&year1=${y}&month1=1&day1=1&year2=${y + 1}&month2=1&day2=1&tz=Etc/UTC&format=onlycomma&latlon=no&missing=M&trace=T&direct=no&report_type=3`;
+  for (let tries = 0; tries < 5; tries++) {
+    let r;
+    try { r = await fetch(url); } catch (e) { await sleep(3000 * (tries + 1)); continue; }
+    const txt = r.ok ? await r.text() : "";
+    if (r.status === 429 || r.status >= 500 || /too many requests/i.test(txt.slice(0, 200))) { await sleep(6000 * (tries + 1)); continue; }
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    return txt.split("\n").slice(1).filter(Boolean).map(l => { const t = l.split(","); const d = t[2] === "M" || t[2] === "" ? null : +t[2], v = t[3] === "M" || t[3] === "" ? NaN : +t[3]; return [d, v]; });
+  }
+  throw new Error("the wind archive is busy");
+}
+async function runWind() {
+  if (wind.busy || !S.wind.station) return;
+  const per = windPeriod(), id = S.wind.station;
+  if (windFromCache()) { renderWind(); return; }
+  wind.busy = true; $("windRun").disabled = true; $("windProg").hidden = false;
+  const bar = $("windProg").firstElementChild, obs = [];
+  try {
+    for (let y = per[0]; y <= per[1]; y++) {
+      $("windFoot").textContent = `Downloading ${id} reports for ${y}…`;
+      obs.push(...await fetchWindYear(id, y));
+      bar.style.width = `${(y - per[0] + 1) / WIND_YEARS * 100}%`;
+      if (y < per[1]) await sleep(800);   // be gentle with the archive
+    }
+    const w = windBins(obs); w.station = id; w.from = per[0]; w.to = per[1];
+    wind.data = w; wind.dataKey = windCacheKey(id, per);
+    try { localStorage.setItem(wind.dataKey, JSON.stringify(w)); } catch (e) {}
+    renderWind();
+  } catch (e) { $("windFoot").textContent = `Couldn't download the wind data (${e.message}). Try again in a minute.`; }
+  wind.busy = false; $("windRun").disabled = false; $("windProg").hidden = true; bar.style.width = "0";
+}
+const pct = v => `${(v * 100).toFixed(1)}%`;
+function windRose(w, courses) {
+  const W = 300, c = W / 2, R = 112, r0 = 18;
+  const sect = w.dir.map(m => { const cls = KT_CLASSES.map(([a, b]) => Object.entries(m).reduce((s, [k, n]) => s + (+k >= a && +k <= b ? n : 0), 0)); return cls.map(n => n / w.n); });
+  const max = Math.max(...sect.map(a => a.reduce((s, v) => s + v, 0))) || 1;
+  const ringStep = max > 0.12 ? 0.05 : max > 0.06 ? 0.02 : 0.01, rr = v => r0 + (R - r0) * v / max;
+  const P = (r, a) => [c + r * Math.sin(a * Math.PI / 180), c - r * Math.cos(a * Math.PI / 180)];
+  const f = n => n.toFixed(1);
+  const wedge = (ra, rb, a1, a2) => { const [x1, y1] = P(ra, a1), [x2, y2] = P(rb, a1), [x3, y3] = P(rb, a2), [x4, y4] = P(ra, a2); return `M${f(x1)},${f(y1)}L${f(x2)},${f(y2)}A${f(rb)},${f(rb)} 0 0 1 ${f(x3)},${f(y3)}L${f(x4)},${f(y4)}A${f(ra)},${f(ra)} 0 0 0 ${f(x1)},${f(y1)}Z`; };
+  let g = "";
+  for (let v = ringStep; v <= max + 1e-9; v += ringStep) g += `<circle cx="${c}" cy="${c}" r="${f(rr(v))}" fill="none" stroke="rgba(60,60,67,.14)"/><text x="${c + 3}" y="${f(c - rr(v) - 2)}">${Math.round(v * 100)}%</text>`;
+  [["N", 0], ["E", 90], ["S", 180], ["W", 270]].forEach(([t, a]) => { const [x, y] = P(R + 12, a); g += `<text x="${f(x)}" y="${f(y + 3.5)}" text-anchor="middle" style="font-weight:600">${t}</text>`; });
+  sect.forEach((cls, i) => {
+    let acc = 0, segs = "";
+    cls.forEach((v, j) => { if (v <= 0) return; segs += `<path d="${wedge(rr(acc), rr(acc + v), i * 10 - 4, i * 10 + 4)}" fill="${KT_COLORS[j]}" stroke="#fff" stroke-width="1"/>`; acc += v; });
+    const tip = `From ${pad3(i * 10 || 360)}°: ${pct(acc)} of hours` + KT_CLASSES.map(([a, b], j) => cls[j] > 0 ? `<br>${b > 99 ? a + "+" : a + "–" + b} kt: ${pct(cls[j])}` : "").join("");
+    g += `<g data-tip="${tip.replace(/"/g, "&quot;")}">${segs}<path d="${wedge(r0, R, i * 10 - 5, i * 10 + 5)}" fill="transparent"/></g>`;
+  });
+  courses.forEach(s => {   // each path at its approach course: aircraft on it land into wind from that direction
+    const [x, y] = P(R + 2, s.course), [x0, y0] = P(r0, s.course);
+    g += `<line x1="${f(x0)}" y1="${f(y0)}" x2="${f(x)}" y2="${f(y)}" stroke="#1c1c1e" stroke-width="2" stroke-dasharray="4 3"/><circle cx="${f(x)}" cy="${f(y)}" r="9" fill="#1c1c1e" stroke="#fff" stroke-width="2"/><text x="${f(x)}" y="${f(y + 3.5)}" text-anchor="middle" style="fill:#fff;font-weight:700;font-size:9px">${s.label}</text>`;
+  });
+  g += `<circle cx="${c}" cy="${c}" r="${r0 - 2}" fill="#fff" stroke="rgba(60,60,67,.2)"/><text x="${c}" y="${c - 1}" text-anchor="middle" style="font-size:9px">calm</text><text x="${c}" y="${c + 9}" text-anchor="middle" style="font-weight:600;fill:#1c1c1e">${Math.round(w.calm / w.n * 100)}%</text>`;
+  return `<svg class="rose" viewBox="0 0 ${W} ${W}" role="img" aria-label="Wind rose for ${w.station}, ${w.from} to ${w.to}">${g}</svg>
+    <div class="keyrow">${KT_CLASSES.map(([a, b], j) => `<span><span class="sw" style="background:${KT_COLORS[j]}"></span>${b > 99 ? a + "+" : a + "–" + b} kt</span>`).join("")}</div>`;
+}
+function renderWind() {
+  const out = $("windOut"), w = wind.data;
+  if (!w || !design || w.station !== S.wind.station) { out.hidden = true; $("windRun").textContent = "Run Wind Analysis"; return; }
+  const xw = +S.wind.xw, tw = +S.wind.tw, courses = design.surfaces.map(s => s.course);
+  const mine = windCoverage(w, courses, xw, tw), best = windBest(w, xw, tw);
+  const pairC = angDiff(best.pair.c, best.prevailing) <= 90 ? best.pair.c : best.pair.c + 180;
+  const sta = wind.near.find(s => s.id === w.station);
+  out.hidden = false;
+  out.innerHTML = `<div class="cell stack">${windRose(w, design.surfaces)}</div>
+    <div class="cell"><span class="lab">Record</span><span class="rv">${w.from}–${w.to}<small>${w.n.toLocaleString("en-US")} hourly reports</small></span></div>
+    <div class="cell"><span class="lab">Prevailing wind</span><span class="rv">from ${pad3(best.prevailing)}°T<small>${pct(best.prevailingShare)} of hours; calm ${pct(w.calm / w.n)}</small></span></div>
+    <div class="cell"><span class="lab">Your paths usable</span><span class="rv">${pct(mine)}<small>${xw} kt crosswind, ${tw} kt tailwind</small></span></div>
+    <div class="cell"><span class="lab">Best single path<span class="sub">course ${pad3(best.one.c)}°T · ${pad3(magCourse(best.one.c, design.decl))}°M</span></span><span class="rv">${pct(best.one.cov)}<small><button class="btn plain" data-wind-use="${best.one.c}" style="padding:0;min-height:0;font-size:11px">Use for Path 1</button></small></span></div>
+    <div class="cell"><span class="lab">Best reciprocal pair<span class="sub">courses ${pad3(pairC)}° and ${pad3(pairC + 180)}°T</span></span><span class="rv">${pct(best.pair.cov)}<small><button class="btn plain" data-wind-use="${norm360(pairC)}" data-recip="1" style="padding:0;min-height:0;font-size:11px">Use for Path 1</button></small></span></div>`;
+  $("windRun").textContent = "Wind Analysis Done";
+  $("windFoot").textContent = `${w.station}${sta ? ` ${sta.name}, ${fmtMi(sta.mi)} mi from the pad` : ""}. Directions are true. Iowa Environmental Mesonet ASOS archive, routine hourly reports.`;
+}
+function windRefresh() {
+  windStations().then(() => {
+    $("xwind").value = S.wind.xw; $("twind").value = S.wind.tw;
+    if (windFromCache()) renderWind(); else { $("windOut").hidden = true; $("windRun").textContent = "Run Wind Analysis"; }
+  });
+}
+$("windStation").onchange = () => { S.wind.station = $("windStation").value; saveState(); windRefresh(); };
+["xwind", "twind"].forEach(id => $(id).addEventListener("input", () => { const v = +$(id).value; if (v >= 0) { S.wind[id === "xwind" ? "xw" : "tw"] = v; saveState(); renderWind(); } }));
+$("windRun").onclick = runWind;
+$("windOut").addEventListener("click", e => {
+  const b = e.target.closest("[data-wind-use]"); if (!b) return;
+  S.paths[0].course = +b.dataset.windUse; if (b.dataset.recip) S.paths[0].recip = true;
+  renderPaths(); update(); status(`Path 1 set to course ${pad3(+b.dataset.windUse)}°T from the wind analysis`);
+});
+// Hover detail on the wind rose.
+const wtip = document.createElement("div"); wtip.className = "wtip"; wtip.hidden = true; document.body.appendChild(wtip);
+$("windOut").addEventListener("mousemove", e => {
+  const g = e.target.closest("[data-tip]");
+  if (!g) { wtip.hidden = true; return; }
+  wtip.innerHTML = g.dataset.tip; wtip.hidden = false;
+  wtip.style.left = Math.min(innerWidth - wtip.offsetWidth - 8, e.clientX + 14) + "px"; wtip.style.top = (e.clientY + 14) + "px";
+});
+$("windOut").addEventListener("mouseleave", () => { wtip.hidden = true; });
+
 // ---------- Export ----------
 function download(name, text, type) {
   const a = document.createElement("a");
@@ -1421,8 +1871,24 @@ function geojsonWithP77(text) {
     geometry: { type: "Polygon", coordinates: it.rings } }));
   return JSON.stringify(gj, null, 1);
 }
-$("kml").onclick = () => { update(); download(`${slug()}.kml`, kmlWithP77(buildKML(design, siteInfo())), "application/vnd.google-earth.kml+xml"); status(`Saved ${slug()}.kml to Downloads`); };
-$("geojson").onclick = () => { update(); download(`${slug()}.geojson`, geojsonWithP77(buildGeoJSON(design, siteInfo())), "application/geo+json"); status(`Saved ${slug()}.geojson to Downloads`); };
+const EXPORTS = {
+  kml: () => { download(`${slug()}.kml`, kmlWithP77(buildKML(design, siteInfo())), "application/vnd.google-earth.kml+xml"); return `${slug()}.kml`; },
+  geojson: () => { download(`${slug()}.geojson`, geojsonWithP77(buildGeoJSON(design, siteInfo())), "application/geo+json"); return `${slug()}.geojson`; },
+};
+let pendingExport = null;
+// A layout that breaks a standard can still be exported, but only after the user sees why, and the file says so.
+function exportFile(kind) {
+  update();
+  if (design.failed.length) {
+    pendingExport = kind;
+    $("expList").innerHTML = design.failed.map(t => `<div class="cell"><div class="note n-bad"><span class="ic">!</span><p>${t}</p></div></div>`).join("");
+    openSheet("expSheet"); return;
+  }
+  status(`Saved ${EXPORTS[kind]()} to Downloads`);
+}
+$("kml").onclick = () => exportFile("kml");
+$("geojson").onclick = () => exportFile("geojson");
+$("expGo").onclick = () => { $("expSheet").hidden = true; if (pendingExport) status(`Saved ${EXPORTS[pendingExport]()} to Downloads, marked non-standard`); pendingExport = null; };
 $("save").onclick = () => { update(); download(`${slug()}.vertiport.json`, JSON.stringify(S, null, 2), "application/json"); status(`Saved ${slug()}.vertiport.json to Downloads`); };
 $("loadBtn").onclick = () => $("loadFile").click();
 $("loadFile").onchange = async e => {
@@ -1526,7 +1992,7 @@ async function makeViewer() {
     terrainNote = token ? "That Cesium token didn't work, so terrain and buildings are off. Check the token in the sidebar." : "Terrain isn't available, so the ground is flat. Heights are measured from the pad.";
   }
   setBase3d(S.basemap);
-  baseKey = "";
+  baseKey = ""; sim.ds = null; sim.profKey = "";
 }
 async function open3d() {
   if (location.protocol === "file:") { toast("The 3D View works only when the planner is opened from a web address. The 2D map and exports work from this file. See the README for the online link.", "3D View unavailable"); return; }
@@ -1574,20 +2040,314 @@ async function render3d(fly) {
   const pill = (text, color) => ({ text, font: "500 13px -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif", fillColor: C.Color.WHITE, showBackground: true,
     backgroundColor: C.Color.fromCssColorString(color), backgroundPadding: new C.Cartesian2(9, 6), verticalOrigin: C.VerticalOrigin.BOTTOM, disableDepthTestDistance: Number.POSITIVE_INFINITY });
   design.surfaces.forEach(s => {
-    const d = [Math.sin(s.bearing * Math.PI / 180), Math.cos(s.bearing * Math.PI / 180)], r = s.r0 + 4000;
-    const [la, lo] = prj.toLL(d[0] * r, d[1] * r);
+    const [la, lo] = prj.toLL(s.end[0], s.end[1]);
     viewer.entities.add({ position: C.Cartesian3.fromDegrees(lo, la, baseH + (deckFt + s.endHeight) * FT), point: { pixelSize: 8, color: C.Color.WHITE, outlineColor: C.Color.fromCssColorString(COLORS.approach), outlineWidth: 2.5, disableDepthTestDistance: Number.POSITIVE_INFINITY },
       label: { ...pill(`Path ${s.label} · ${s.slope}:1 · ${Math.round(s.endHeight)} ft`, COLORS.approach), pixelOffset: new C.Cartesian2(0, -14), distanceDisplayCondition: new C.DistanceDisplayCondition(0, 9000) } });
   });
   viewer.entities.add({ position: C.Cartesian3.fromDegrees(S.lon, S.lat, baseH + deckFt * FT), label: { ...pill(S.name || "Vertiport", "#1c1c1e"), pixelOffset: new C.Cartesian2(0, -18) } });
   drawAir3d(); drawP77_3d(); drawFac3d();
   $("camPaths").innerHTML = design.surfaces.map((s, i) => `<button data-final="${i}" aria-pressed="false" title="Pilot's view on final, from the outer end of the surface">Final ${s.label}</button>`).join("");
-  if (fly) flyOverview();
+  if (sim.on) simPrepare(); else if (fly) flyOverview();
 }
+
+// ---------- Fly a path (3D): a generic aircraft follows a surface's centerline, over a profile of what lies beneath ----------
+// The approach surface is an obstacle limit, not a flight path. The aircraft flies its own path above it, 8:1 unless
+// changed, slowing from 60 kt at 4,000 ft to a 5 kt hover taxi at 10 ft over the FATO, then settles onto the TLOF.
+// A departure is the same track in reverse.
+const SIM_KT = 1.68781, SIM_HOVER = 10;
+const simFp = () => { const v = +S.fp; return isFinite(v) && v >= 2 && v <= 40 ? v : 8; };
+const sim = { on: false, idx: 0, dep: false, cam: "pilot", speed: 1, t: 0, playing: false, track: null, prof: null, profKey: "", ds: null, raf: 0, last: 0, cart: null, quat: null, frame: null, travel: 0 };
+function simTrack(s) {
+  const ds = [];
+  for (let d = 4000; d > 0; d -= 20) ds.push(d);
+  ds.push(0);
+  for (let d = -20; d > -s.r0; d -= 20) ds.push(d);
+  ds.push(-s.r0);
+  const out = []; let t = 0, prev = null;
+  ds.forEach(d => {
+    const c = centerlineAt(s, d), kt = d > 0 ? 5 + 55 * Math.min(d, 4000) / 4000 : 5;
+    const h = Math.max(d / simFp(), SIM_HOVER);
+    if (prev) t += Math.hypot(c.x - prev.x, c.y - prev.y, h - prev.h) / (((kt + prev.kt) / 2) * SIM_KT);
+    const p = { x: c.x, y: c.y, h, hdg: c.hdg, dist: d, kt, t };
+    out.push(p); prev = p;
+  });
+  const end = out[out.length - 1];
+  out.push({ ...end, h: 0, kt: 0, t: end.t + SIM_HOVER / 2 });   // settle at 2 ft/s
+  return { pts: out, T: out[out.length - 1].t };
+}
+// State at time t (seconds) along the approach, or along the departure (the approach run backward).
+function simAt(t) {
+  const { pts, T } = sim.track, ta = sim.dep ? T - t : t;
+  let lo = 0, hi = pts.length - 1;
+  while (hi - lo > 1) { const m = (lo + hi) >> 1; if (pts[m].t <= ta) lo = m; else hi = m; }
+  const a = pts[lo], b = pts[hi], f = b.t > a.t ? Math.min(1, Math.max(0, (ta - a.t) / (b.t - a.t))) : 0, L = (u, v) => u + (v - u) * f;
+  const travel = sim.dep ? a.hdg : norm360(a.hdg + 180);
+  return { x: L(a.x, b.x), y: L(a.y, b.y), h: L(a.h, b.h), dist: L(a.dist, b.dist), kt: L(a.kt, b.kt), travel };
+}
+function simEnsureDS() {
+  const C = window.Cesium;
+  if (sim.ds && viewer.dataSources.contains(sim.ds)) return;
+  sim.ds = new C.CustomDataSource("fly"); viewer.dataSources.add(sim.ds);
+}
+// A generic lift-plus-cruise eVTOL built from simple shapes and sized from D (rotor tip to rotor tip):
+// fuselage with canopy and cabin windows, high wing with navigation lights, two booms a side carrying eight
+// spinning two-blade lift rotors, a T-tail with a pusher propeller, and tricycle landing gear. Not any real type.
+// Each part sits at an offset (forward, left, up) in units of D from the aircraft's reference point, which is
+// set so the wheels touch the flight path.
+const SIM_GEAR = 0.1;
+function simAircraft() {
+  const C = window.Cesium; simEnsureDS(); sim.ds.entities.removeAll();
+  const D = Math.max(10, +S.D || 40) * FT, col = c => C.Color.fromCssColorString(c);
+  const white = col("#f5f5f7"), grey = col("#8e8e93"), dark = col("#3a3a3c"), glass = col("#1d3557"), accent = col("#007aff");
+  const ori = new C.CallbackProperty(() => sim.quat, false);
+  // Orientation turned about a local axis by a fixed angle, or spinning when rate (turns per second) is given.
+  const turned = (axis, ang, rate) => new C.CallbackProperty(() => {
+    if (!sim.quat) return sim.quat;
+    const a = ang + (rate ? performance.now() / 1000 * rate * 2 * Math.PI : 0);
+    return C.Quaternion.multiply(sim.quat, C.Quaternion.fromAxisAngle(axis, a), new C.Quaternion());
+  }, false);
+  const at = (f, l, u) => { const off = new C.Cartesian3(f * D, l * D, u * D); return new C.CallbackProperty(() => sim.frame ? C.Matrix4.multiplyByPoint(sim.frame, off, new C.Cartesian3()) : sim.cart, false); };
+  const add = (f, l, u, g, o) => sim.ds.entities.add({ position: at(f, l, u), orientation: o || ori, ...g });
+  const box = (f, l, u, x, y, z, c, o, line = true) => add(f, l, u, { box: { dimensions: new C.Cartesian3(x * D, y * D, z * D), material: c, outline: line, outlineColor: dark.withAlpha(0.5) } }, o);
+  const ell = (f, l, u, x, y, z, c) => add(f, l, u, { ellipsoid: { radii: new C.Cartesian3(x * D, y * D, z * D), material: c } });
+  const disc = (f, l, u, r, c, o) => add(f, l, u, { cylinder: { length: 0.003 * D, topRadius: r * D, bottomRadius: r * D, material: c, outline: true, outlineColor: dark.withAlpha(0.45), numberOfVerticalLines: 0 } }, o);
+  const hub = (f, l, u, r, len, o) => add(f, l, u, { cylinder: { length: len * D, topRadius: r * D, bottomRadius: r * D, material: dark } }, o);
+  // Fuselage, canopy, cabin windows and a stripe
+  ell(0, 0, 0, 0.23, 0.05, 0.055, white);
+  ell(0.12, 0, 0.028, 0.085, 0.038, 0.032, glass);
+  const side = (x, z) => 0.05 * Math.sqrt(Math.max(0, 1 - (x / 0.23) ** 2 - (z / 0.055) ** 2));
+  [0.07, 0.03, -0.01, -0.05].forEach(x => [1, -1].forEach(k => box(x, k * side(x, 0.012), 0.012, 0.026, 0.004, 0.02, glass, null, false)));
+  [1, -1].forEach(k => box(-0.02, k * side(-0.02, -0.018), -0.018, 0.3, 0.004, 0.006, accent, null, false));
+  // Wing, pylon and navigation lights (red left, green right, white tail)
+  box(0.01, 0, 0.06, 0.085, 0.8, 0.012, white);
+  box(0.01, 0, 0.045, 0.07, 0.03, 0.03, white);
+  ell(0.01, 0.405, 0.06, 0.012, 0.008, 0.008, C.Color.RED);
+  ell(0.01, -0.405, 0.06, 0.012, 0.008, 0.008, C.Color.LIME);
+  // T-tail and pusher propeller (a vertical disc that spins)
+  box(-0.2, 0, 0.045, 0.06, 0.008, 0.075, white);
+  box(-0.215, 0, 0.085, 0.05, 0.24, 0.008, white);
+  ell(-0.24, 0, 0.088, 0.008, 0.008, 0.008, C.Color.WHITE);
+  const yAxis = C.Cartesian3.UNIT_Y, xAxis = C.Cartesian3.UNIT_X, zAxis = C.Cartesian3.UNIT_Z;
+  disc(-0.245, 0, 0, 0.07, C.Color.WHITE.withAlpha(0.18), turned(yAxis, Math.PI / 2));
+  hub(-0.238, 0, 0, 0.014, 0.02, turned(yAxis, Math.PI / 2));
+  box(-0.247, 0, 0, 0.004, 0.13, 0.012, dark, turned(xAxis, 0, 6), false);
+  // Booms with eight lift rotors: a faint disc, a hub and two blades that spin, neighbours in opposite directions
+  let n = 0;
+  [0.18, 0.38].forEach(y => [y, -y].forEach(l => {
+    box(0.03, l, 0.05, 0.48, 0.018, 0.018, grey);
+    [0.24, -0.18].forEach(f => {
+      const dir = (n++ % 2 ? 1 : -1);
+      disc(f, l, 0.064, 0.095, C.Color.WHITE.withAlpha(0.14));
+      hub(f, l, 0.064, 0.012, 0.014);
+      box(f, l, 0.07, 0.185, 0.014, 0.003, dark, turned(zAxis, n, 1.5 * dir), false);
+    });
+  }));
+  // Tricycle landing gear: nose wheel and two mains on struts
+  [[0.15, 0], [-0.04, 0.045], [-0.04, -0.045]].forEach(([f, l]) => {
+    box(f, l, -0.07, 0.008, 0.008, 0.04, grey, null, false);
+    ell(f, l, -0.085, 0.015, 0.006, 0.015, dark);
+  });
+}
+function simPlace() {
+  const C = window.Cesium, st = simAt(sim.t), prj = makeProjector(S.lat, S.lon), deck = design.elevated ? +S.deck : 0;
+  const [la, lo] = prj.toLL(st.x, st.y);
+  sim.cart = C.Cartesian3.fromDegrees(lo, la, baseH + (deck + st.h) * FT + SIM_GEAR * Math.max(10, +S.D || 40) * FT);
+  sim.travel = st.travel;
+  // Cesium points a box's long (x) axis east at heading 0, so turn it by the travel heading less 90°.
+  const hpr = new C.HeadingPitchRoll(C.Math.toRadians(st.travel - 90), 0, 0);
+  sim.quat = C.Transforms.headingPitchRollQuaternion(sim.cart, hpr);
+  sim.frame = C.Transforms.headingPitchRollToFixedFrame(sim.cart, hpr);   // local x forward, y left, z up
+  sim.ds.show = sim.cam !== "pilot";
+  const cam = viewer.camera;
+  if (sim.cam === "pilot") {
+    cam.lookAtTransform(C.Matrix4.IDENTITY);
+    const eye = C.Cartesian3.fromDegrees(lo, la, baseH + (deck + st.h) * FT + 2);
+    cam.setView({ destination: eye, orientation: { heading: C.Math.toRadians(st.travel), pitch: C.Math.toRadians(sim.dep ? -3 : -7), roll: 0 } });
+  } else {
+    cam.lookAt(sim.cart, new C.HeadingPitchRange(C.Math.toRadians(st.travel), C.Math.toRadians(-14), Math.max(60, 3 * Math.max(10, +S.D || 40) * FT)));
+    cam.lookDown(0.16);   // put the aircraft in the upper part of the view, clear of the flight panel
+  }
+  // Readout: the gap to the surface and the gap to the highest sampled object, both measured from the wheels.
+  const surf = Math.max(0, st.dist / design.surfaces[sim.idx].slope), pr = sim.prof && sim.prof.ok ? simProfAt(st.dist) : null;
+  const ft = v => `${Math.round(v).toLocaleString("en-US")} ft`;
+  const out = st.dist > 0 ? ft(st.dist) : "over the FATO";
+  const gapS = st.h - surf, gapO = pr && pr.top != null ? st.h - pr.top : null;
+  const obj = gapO == null ? "–" : gapO < -0.5 ? `${ft(-gapO)} below it` : ft(gapO);
+  $("simRo").innerHTML = `<div>Distance out<b>${out}</b></div><div>Height above pad<b>${Math.round(st.h)} ft</b></div>
+    <div>Above the surface<b class="${gapS < -0.5 ? "bad" : ""}">${gapS < -0.5 ? `${ft(-gapS)} below it` : ft(gapS)}</b></div>
+    <div>Above highest object<b class="${gapO != null && gapO < 0.5 && st.dist > 0 ? "bad" : ""}">${obj}</b></div><div>Speed<b>${Math.round(st.kt)} kt</b></div>`;
+  $("simT").value = Math.round(sim.t / sim.track.T * 1000);
+  simDrawProfile(st);
+}
+function simTick(now) {
+  if (!sim.playing) return;
+  const dt = sim.last ? (now - sim.last) / 1000 : 0; sim.last = now;
+  sim.t = Math.min(sim.track.T, sim.t + dt * sim.speed);
+  simPlace();
+  if (sim.t >= sim.track.T) { simPause(); return; }
+  sim.raf = requestAnimationFrame(simTick);
+}
+function simPlay() { if (!sim.track) return; if (sim.t >= sim.track.T) sim.t = 0; sim.playing = true; sim.last = 0; $("simPlay").innerHTML = '<svg viewBox="0 0 14 14"><path d="M3 2h3v10H3zM8 2h3v10H8z"/></svg>'; $("simPlay").setAttribute("aria-label", "Pause"); sim.raf = requestAnimationFrame(simTick); }
+function simPause() { sim.playing = false; cancelAnimationFrame(sim.raf); $("simPlay").innerHTML = '<svg viewBox="0 0 14 14"><path d="M3 1.5v11l9-5.5z"/></svg>'; $("simPlay").setAttribute("aria-label", "Play"); }
+function simStop() {
+  if (!sim.on) return;
+  simPause(); sim.on = false; $("sim").hidden = true; $("legend").hidden = false; $("camFly").setAttribute("aria-pressed", "false");
+  if (sim.ds) { sim.ds.entities.removeAll(); }
+  if (viewer) viewer.camera.lookAtTransform(window.Cesium.Matrix4.IDENTITY);
+}
+// Heights of terrain and buildings across the surface: every 100 ft out, at five points across its width.
+async function simSample(s) {
+  const C = window.Cesium, prj = makeProjector(S.lat, S.lon), deck = design.elevated ? +S.deck : 0;
+  const stations = [], cartos = [];
+  for (let d = 0; d <= 4000; d += 100) {
+    const hw = s.w0 / 2 + (s.endW - s.w0) / 2 * d / 4000, c = centerlineAt(s, d), n = unit(c.hdg + 90);
+    stations.push(d);
+    [-0.95, -0.5, 0, 0.5, 0.95].forEach(k => { const [la, lo] = prj.toLL(c.x + n[0] * hw * k, c.y + n[1] * hw * k); cartos.push(C.Cartographic.fromDegrees(lo, la)); });
+  }
+  const ground = cartos.map(() => null);
+  try { const t = await C.sampleTerrainMostDetailed(viewer.terrainProvider, cartos.map(c => c.clone())); t.forEach((c, i) => { if (isFinite(c.height)) ground[i] = c.height; }); } catch (e) {}
+  let withBuildings = false;
+  if (osmTiles && viewer.scene.sampleHeightSupported) {
+    const shown = viewer.entities.show; viewer.entities.show = false;
+    const hadAc = sim.ds && viewer.dataSources.contains(sim.ds); if (hadAc) viewer.dataSources.remove(sim.ds, false);   // take the aircraft out of the scene
+    try {
+      // Sample only terrain and buildings: exclude the aircraft and every drawn surface and label. Hiding them
+      // alone isn't enough, since that takes effect at the next frame and sampling starts at once.
+      const skip = [...viewer.entities.values];
+      for (let i = 0; i < viewer.dataSources.length; i++) skip.push(...viewer.dataSources.get(i).entities.values);
+      await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+      const t = await viewer.scene.sampleHeightMostDetailed(cartos.map(c => c.clone()), skip);
+      t.forEach((c, i) => { if (c && isFinite(c.height)) ground[i] = ground[i] == null ? c.height : Math.max(ground[i], c.height); });
+      withBuildings = true;
+    } catch (e) {}
+    viewer.entities.show = shown;
+    if (hadAc && !viewer.dataSources.contains(sim.ds)) viewer.dataSources.add(sim.ds);
+  }
+  const top = stations.map((d, j) => {
+    const hs = ground.slice(j * 5, j * 5 + 5).filter(h => h != null);
+    return hs.length ? (Math.max(...hs) - baseH) / FT - deck : null;
+  });
+  return { ok: top.some(v => v != null), stations, top, withBuildings, terrain: hasTerrain };
+}
+function simProfAt(dist) {
+  const p = sim.prof; if (!p || dist < 0) return null;
+  const j = Math.min(p.stations.length - 1, Math.round(dist / 100));
+  return { top: p.top[j] };
+}
+function simSummary(s) {
+  const p = sim.prof; if (!p) return "Sampling the ground under the surface…";
+  if (!p.ok) return "Couldn't sample heights under this surface.";
+  let worst = null;
+  p.stations.forEach((d, j) => { const v = p.top[j]; if (v == null || d < 1) return; const over = v - d / s.slope; if (!worst || over > worst.over) worst = { d, over }; });
+  const src = p.withBuildings ? "terrain and OpenStreetMap buildings" : p.terrain ? "terrain only, no buildings (add a Cesium token for buildings)" : "a flat globe, with no terrain loaded";
+  const head = worst && worst.over > 0.5
+    ? `<b style="color:#d70015">Something rises ${Math.round(worst.over)} ft into the ${s.slope}:1 surface ${worst.d.toLocaleString("en-US")} ft out.</b>`
+    : `Nothing found above the ${s.slope}:1 surface${worst ? `; the closest is ${Math.round(-worst.over)} ft below it, ${worst.d.toLocaleString("en-US")} ft out` : ""}.`;
+  const fp = simFp(), deg = Math.atan(1 / fp) * 180 / Math.PI;
+  let fly;
+  if (fp > s.slope + 1e-9) fly = `<b style="color:#d70015">The ${fp}:1 flight path (${deg.toFixed(1)}°) is shallower than the ${s.slope}:1 surface, so the aircraft flies below it.</b>`;
+  else {
+    let close = null;
+    p.stations.forEach((d, j) => { const v = p.top[j]; if (v == null || d < 1) return; const g = Math.max(d / fp, SIM_HOVER) - v; if (!close || g < close.g) close = { d, g }; });
+    fly = `The aircraft flies a path of ${fp}:1 (${deg.toFixed(1)}°), ${Math.round(4000 / fp - 4000 / s.slope)} ft above the surface at 4,000 ft out and in a ${SIM_HOVER} ft hover at the FATO edge.`
+      + (!close ? "" : close.g < -0.5
+        ? ` <b style="color:#d70015">It passes ${Math.round(-close.g)} ft below sampled ground or buildings ${close.d.toLocaleString("en-US")} ft out.</b>`
+        : ` Its smallest gap over sampled ground or buildings is ${Math.round(close.g)} ft, ${close.d.toLocaleString("en-US")} ft out.`);
+  }
+  return `${head} ${fly} Sampled every 100 ft at five points across the surface, from ${src}. Trees and other objects not in that data are missed, so confirm with a survey.`;
+}
+function simDrawProfile(st) {
+  const svg = $("simProf"), s = design.surfaces[sim.idx], p = sim.prof;
+  const W = svg.clientWidth || 600, H = svg.clientHeight || 150, m = { l: 34, r: 10, t: 16, b: 18 };
+  const tops = p && p.ok ? p.top.filter(v => v != null) : [];
+  const fp = simFp();
+  const ymax = Math.max(s.endHeight * 1.1, s.slope > 8 ? 4000 / 8 * 0.6 : 0, 4000 / fp * 1.05, ...tops.map(v => v + 10), 40);
+  const ymin = Math.min(0, ...tops) - 5;
+  const X = d => m.l + (W - m.l - m.r) * d / 4000, Y = h => m.t + (H - m.t - m.b) * (1 - (h - ymin) / (ymax - ymin));
+  const f = n => n.toFixed(1);
+  let g = "";
+  const step = ymax > 400 ? 100 : ymax > 150 ? 50 : 20;
+  for (let v = 0; v <= ymax; v += step) g += `<line x1="${m.l}" x2="${W - m.r}" y1="${f(Y(v))}" y2="${f(Y(v))}" stroke="rgba(60,60,67,.12)"/><text x="${m.l - 4}" y="${f(Y(v) + 3)}" text-anchor="end">${v}</text>`;
+  [0, 1000, 2000, 3000, 4000].forEach(d => { g += `<text x="${f(X(d))}" y="${H - 4}" text-anchor="${d === 0 ? "start" : d === 4000 ? "end" : "middle"}">${d === 0 ? "FATO edge" : d.toLocaleString("en-US") + " ft"}</text>`; });
+  if (p && p.ok) {
+    const pts = p.stations.map((d, j) => p.top[j] == null ? null : [X(d), Y(p.top[j])]).filter(Boolean);
+    g += `<path d="M${f(pts[0][0])},${f(Y(ymin))}L${pts.map(q => `${f(q[0])},${f(q[1])}`).join("L")}L${f(pts[pts.length - 1][0])},${f(Y(ymin))}Z" fill="rgba(142,142,147,.35)" stroke="#636366" stroke-width="1.5"/>`;
+    p.stations.forEach((d, j) => { const v = p.top[j]; if (v != null && d > 0 && v > d / s.slope + 0.5) g += `<line x1="${f(X(d))}" x2="${f(X(d))}" y1="${f(Y(d / s.slope))}" y2="${f(Y(v))}" stroke="#d70015" stroke-width="3" stroke-linecap="round"/>`; });
+  }
+  if (s.slope > 8) { const d8 = Math.min(4000, ymax * 8); g += `<line x1="${f(X(0))}" y1="${f(Y(0))}" x2="${f(X(d8))}" y2="${f(Y(d8 / 8))}" stroke="#8e8e93" stroke-width="1.5" stroke-dasharray="5 4"/>`; }
+  g += `<line x1="${f(X(0))}" y1="${f(Y(0))}" x2="${f(X(4000))}" y2="${f(Y(s.endHeight))}" stroke="#007aff" stroke-width="2"/>`;
+  g += `<polyline points="${f(X(0))},${f(Y(SIM_HOVER))} ${f(X(fp * SIM_HOVER))},${f(Y(SIM_HOVER))} ${f(X(4000))},${f(Y(4000 / fp))}" fill="none" stroke="#ff9500" stroke-width="2"/>`;
+  if (st && st.dist >= 0) g += `<circle cx="${f(X(st.dist))}" cy="${f(Y(st.h))}" r="5" fill="#1c1c1e" stroke="#fff" stroke-width="2"/>`;
+  // Legend, laid out left to right from the label lengths.
+  const items = [["line", "#ff9500", "", `Flight path ${fp}:1`], ["line", "#007aff", "", `${s.slope}:1 surface`]];
+  if (s.slope > 8) items.push(["line", "#8e8e93", "4 3", "8:1 (Part 77)"]);
+  items.push(["box", "", "", "highest ground or building across the surface"]);
+  let lx = 0, lg = "";
+  items.forEach(([k, c, dash, t]) => {
+    lg += k === "line" ? `<line x1="${lx}" x2="${lx + 14}" y1="-3" y2="-3" stroke="${c}" stroke-width="2"${dash ? ` stroke-dasharray="${dash}"` : ""}/>` : `<rect x="${lx}" y="-8" width="12" height="9" fill="rgba(142,142,147,.35)" stroke="#636366"/>`;
+    lg += `<text x="${lx + 18}" y="0">${t}</text>`; lx += 18 + t.length * 5.4 + 12;
+  });
+  g += `<g transform="translate(${m.l + 6},${m.t - 4})">${lg}</g>`;
+  g += `<line id="simHair" x1="0" x2="0" y1="${m.t}" y2="${H - m.b}" stroke="#1c1c1e" stroke-width="1" visibility="hidden"/>`;
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`); svg.innerHTML = g;
+  svg.dataset.ml = m.l; svg.dataset.mr = m.r; svg.dataset.w = W;
+}
+async function simPrepare(fly) {
+  if (!viewer || !design || !design.surfaces.length) return;
+  if (sim.idx >= design.surfaces.length) sim.idx = 0;
+  const s = design.surfaces[sim.idx];
+  $("simPaths").innerHTML = design.surfaces.map((x, i) => `<button data-sim-path="${i}" aria-pressed="${i === sim.idx}">Path ${x.label}</button>`).join("");
+  sim.track = simTrack(s);
+  sim.t = Math.min(sim.t, sim.track.T);
+  simAircraft();
+  const key = `${S.lat},${S.lon},${S.deck},${baseH},${sim.idx},${s.bearing},${s.slope},${JSON.stringify(s.curve)},${s.w0},${!!osmTiles}`;
+  if (key !== sim.profKey) { sim.prof = null; sim.profKey = key; }
+  $("simNote").innerHTML = simSummary(s);
+  simPlace();
+  if (!sim.prof) {
+    const p = await simSample(s);
+    if (key !== sim.profKey) return;
+    sim.prof = p; $("simNote").innerHTML = simSummary(s); simPlace();
+  }
+}
+function simOpen() {
+  if (!viewer) return;
+  simFpShow();
+  sim.on = true; sim.t = 0; $("sim").hidden = false; $("legend").hidden = true; markView(""); $("camFly").setAttribute("aria-pressed", "true");
+  simPrepare(true);
+}
+$("camFly").onclick = () => { if (sim.on) simStop(); else simOpen(); };
+$("simClose").onclick = () => { simStop(); flyOverview(); };
+$("simPlay").onclick = () => { if (sim.playing) simPause(); else simPlay(); };
+$("simT").addEventListener("input", () => { if (!sim.track) return; simPause(); sim.t = +$("simT").value / 1000 * sim.track.T; simPlace(); });
+$("simPaths").addEventListener("click", e => { const b = e.target.closest("[data-sim-path]"); if (!b) return; simPause(); sim.idx = +b.dataset.simPath; sim.t = 0; simPrepare(); });
+$("simArr").onclick = () => { simPause(); sim.dep = false; setSeg("simArr", "simDep", true); sim.t = 0; simPlace(); };
+$("simDep").onclick = () => { simPause(); sim.dep = true; setSeg("simArr", "simDep", false); sim.t = 0; simPlace(); };
+function simFpShow() { const fp = simFp(); $("simFp").value = fp; $("simFpDeg").textContent = `${(Math.atan(1 / fp) * 180 / Math.PI).toFixed(1)}°`; }
+$("simFp").addEventListener("change", () => {
+  const v = +$("simFp").value; S.fp = isFinite(v) && v >= 2 && v <= 40 ? v : 8; simFpShow(); saveState();
+  if (!sim.on || !design.surfaces[sim.idx]) return;
+  simPause(); const f = sim.track ? sim.t / sim.track.T : 0; sim.track = simTrack(design.surfaces[sim.idx]); sim.t = f * sim.track.T;
+  $("simNote").innerHTML = simSummary(design.surfaces[sim.idx]); simPlace();
+});
+$("simPilot").onclick = () => { sim.cam = "pilot"; setSeg("simPilot", "simChase", true); simPlace(); };
+$("simChase").onclick = () => { sim.cam = "chase"; setSeg("simPilot", "simChase", false); simPlace(); };
+document.querySelectorAll("#sim [data-speed]").forEach(b => b.onclick = () => { sim.speed = +b.dataset.speed; document.querySelectorAll("#sim [data-speed]").forEach(x => x.setAttribute("aria-pressed", String(x === b))); });
+// Crosshair and readout on the profile.
+$("simProf").addEventListener("mousemove", e => {
+  const svg = $("simProf"), r = svg.getBoundingClientRect(), W = +svg.dataset.w, ml = +svg.dataset.ml, mr = +svg.dataset.mr;
+  const x = (e.clientX - r.left) * W / r.width, d = Math.max(0, Math.min(4000, (x - ml) / (W - ml - mr) * 4000));
+  const s = design.surfaces[sim.idx], hair = $("simHair"); if (!hair) return;
+  hair.setAttribute("x1", x); hair.setAttribute("x2", x); hair.setAttribute("visibility", "visible");
+  const pr = simProfAt(d), sv = d / s.slope;
+  wtip.innerHTML = `<b>${Math.round(d).toLocaleString("en-US")} ft out</b><br>Flight path: ${Math.round(Math.max(d / simFp(), SIM_HOVER))} ft<br>${s.slope}:1 surface: ${Math.round(sv)} ft${s.slope > 8 ? `<br>8:1 surface: ${Math.round(d / 8)} ft` : ""}${pr && pr.top != null ? `<br>Highest ground or building: ${Math.round(pr.top)} ft${pr.top > sv + 0.5 && d > 0 ? ` <b style="color:#d70015">(${Math.round(pr.top - sv)} ft into the surface)</b>` : ""}` : ""}<br><span style="color:var(--label2)">Heights above the pad</span>`;
+  wtip.hidden = false; wtip.style.left = Math.min(innerWidth - wtip.offsetWidth - 8, e.clientX + 14) + "px"; wtip.style.top = Math.max(8, e.clientY - wtip.offsetHeight - 10) + "px";
+});
+$("simProf").addEventListener("mouseleave", () => { wtip.hidden = true; const h = $("simHair"); if (h) h.setAttribute("visibility", "hidden"); });
 
 // ---------- Camera controls (2D and 3D) ----------
 const padCenter = () => window.Cesium.Cartesian3.fromDegrees(S.lon, S.lat, baseH + (design && design.elevated ? +S.deck : 0) * FT);
-function markView(id) { document.querySelectorAll("#views button").forEach(b => b.setAttribute("aria-pressed", String(b.id === id || b.dataset.final === id))); }
+function markView(id) { document.querySelectorAll("#views button").forEach(b => b.setAttribute("aria-pressed", String(!!id && (b.id === id || b.dataset.final === id)))); }
 function flyOverview() {
   const C = window.Cesium, s0 = design.surfaces[0];
   const lookFrom = s0 ? s0.bearing + 35 : 200;
@@ -1625,6 +2385,7 @@ $("stack").addEventListener("pointerdown", e => {
   e.preventDefault();
   if (!mode3d) { if (b.dataset.cam === "zoomIn") map.zoomIn(); else if (b.dataset.cam === "zoomOut") map.zoomOut(); return; }
   if (!viewer) return;
+  simStop();
   b.setPointerCapture(e.pointerId); markView("");
   camHold = b.dataset.cam; camLoop();
 });
@@ -1635,22 +2396,23 @@ $("stack").addEventListener("keydown", e => {
   if (!mode3d) { if (b.dataset.cam === "zoomIn") map.zoomIn(); else if (b.dataset.cam === "zoomOut") map.zoomOut(); return; }
   if (!viewer) return; const o = getOrbit(); for (let i = 0; i < 6; i++) CAM_STEP[b.dataset.cam](o); setOrbit(o);
 });
-$("recenter").onclick = () => { if (mode3d && viewer) flyOverview(); else fitPad(); };
-$("camOverview").onclick = () => viewer && flyOverview();
+$("recenter").onclick = () => { if (mode3d && viewer) { simStop(); flyOverview(); } else fitPad(); };
+$("camOverview").onclick = () => { if (!viewer) return; simStop(); flyOverview(); };
 $("camTop").onclick = () => {
-  if (!viewer) return; const C = window.Cesium, o = getOrbit();
+  if (!viewer) return; simStop(); const C = window.Cesium, o = getOrbit();
   viewer.camera.flyToBoundingSphere(new C.BoundingSphere(padCenter(), 1), { offset: new C.HeadingPitchRange(o.h, C.Math.toRadians(-89.5), 2600), duration: 1 });
   markView("camTop");
 };
 $("camPaths").addEventListener("click", e => {
   const b = e.target.closest("button[data-final]"); if (!b || !viewer) return;
+  simStop();
   const C = window.Cesium, s = design.surfaces[+b.dataset.final];
-  const prj = makeProjector(S.lat, S.lon), r = s.r0 + 4000;
-  const d = [Math.sin(s.bearing * Math.PI / 180), Math.cos(s.bearing * Math.PI / 180)];
-  const [la, lo] = prj.toLL(d[0] * r, d[1] * r);
+  const prj = makeProjector(S.lat, S.lon), r = Math.hypot(s.end[0], s.end[1]);
+  const [la, lo] = prj.toLL(s.end[0], s.end[1]);
   const deckFt = design.elevated ? +S.deck : 0;
+  // Look back along the path's last leg toward the pad (on a curved path the pad may be off to one side).
   viewer.camera.flyTo({ destination: C.Cartesian3.fromDegrees(lo, la, baseH + (deckFt + s.endHeight + 15) * FT),
-    orientation: { heading: C.Math.toRadians(s.course), pitch: -Math.atan2(s.endHeight + 15, r), roll: 0 }, duration: 1.5 });
+    orientation: { heading: C.Math.toRadians(s.curve ? norm360(s.endHdg + 180) : s.course), pitch: -Math.atan2(s.endHeight + 15, r), roll: 0 }, duration: 1.5 });
   markView(b.dataset.final);
 });
 
@@ -1661,7 +2423,7 @@ function setMode(is3d) {
   $("globe").hidden = !is3d;
   $("stack3d").hidden = !is3d;
   $("views").hidden = !is3d;
-  if (is3d) open3d(); else { toast(""); map.invalidateSize(); }
+  if (is3d) open3d(); else { simStop(); toast(""); map.invalidateSize(); }
 }
 function setBasemap(k) {
   S.basemap = k;
