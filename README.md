@@ -12,6 +12,8 @@ The planner follows FAA Draft Advisory Circular 150/5390-4, *Vertical Flight Air
 
 It runs in a web browser. There is nothing to install and no account to create.
 
+Every size, surface and marking comes from a specific paragraph, table or figure of the FAA's draft AC 150/5390-4, which may change before it is final. The planner's ⓘ buttons cite that source for each setting and result. The Part 77, airspace and wind layers name their own sources. Check the results against the source and have a qualified engineer review any design before relying on it. See [Important](#important).
+
 ### Watch the walkthrough
 
 [![Play the 7-minute Vertiport Surface Planner walkthrough on YouTube](docs/images/00-video-walkthrough.jpg)](https://youtu.be/CsUHH2hGvCI)
@@ -248,7 +250,7 @@ The FAA evaluates obstacles only against the 8:1 surface under 14 CFR Part 77. A
 
 ## Important
 
-This is a planning sketch based on a draft standard. It is not an FAA airspace determination, a design approval, or a substitute for an engineer's review.
+The planner is provided as is, with no warranty. Use it at your own risk and check all work. It is a planning sketch based on a draft standard, not an FAA airspace determination, a design approval, or a substitute for an engineer's review.
 
 ## For developers
 

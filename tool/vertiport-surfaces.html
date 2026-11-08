@@ -189,10 +189,9 @@ select.pop:focus { outline: none; color: var(--blue); }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .chips button { border: none; border-radius: 999px; padding: 4px 10px; font: 500 12px var(--f); background: var(--fill); color: var(--label); cursor: pointer; display: inline-flex; align-items: center; gap: 5px; }
 .chips button[aria-pressed="true"] { background: var(--blue); color: #fff; }
-.fac { width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; font: 700 10px/1 var(--f); box-shadow: 0 1px 3px rgba(0,0,0,.35); }
-.fac.pu { background: #1c1c1e; color: #fff; border: 1.5px solid #fff; }
-.fac.pr { background: #fff; color: #1c1c1e; border: 1.5px solid #1c1c1e; }
-.fac.dot::after { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.fac { width: 22px; height: 22px; filter: drop-shadow(0 1px 2px rgba(0,0,0,.45)); }
+.fac svg, .sw.ico svg { display: block; width: 100%; height: 100%; }
+.sw.ico { background: none !important; box-shadow: none !important; border: 0 !important; border-radius: 0 !important; width: 14px; height: 14px; }
 .handle { width: 28px; height: 28px; border-radius: 50%; background: #fff; color: var(--blue); font: 600 12px/28px var(--f); text-align: center; box-shadow: 0 1px 4px rgba(0,0,0,.3), 0 0 0 .5px rgba(0,0,0,.1); cursor: grab; }
 .close-in .center-pin { width: 10px; height: 10px; background: transparent; border: 2px solid var(--blue); box-shadow: 0 0 0 1.5px #fff; margin: 6px; }
 .center-pin { width: 22px; height: 22px; border-radius: 50%; background: var(--blue); border: 3.5px solid #fff; box-shadow: 0 1px 6px rgba(0,0,0,.35); cursor: move; }
@@ -472,7 +471,7 @@ select.pop:focus { outline: none; color: var(--blue); }
         <div class="foot">Companion app: <a href="https://basilbuildsai.github.io/heliport-surface-planner/" target="_blank" rel="noopener">Heliport Surface Planner</a> (AC 150/5390-2D)</div>
       </div>
 
-      <p class="legal">© 2026 Basil Yap. Free for noncommercial use under the <a href="https://polyformproject.org/licenses/noncommercial/1.0.0" target="_blank" rel="noopener">PolyForm Noncommercial License 1.0.0</a>. Commercial use needs a license: <a href="https://docs.google.com/forms/d/e/1FAIpQLSf1xf1FYvdN0Jw-cdIcSiQatTBELTr2MrMmcFuTI27Qir7J-w/viewform" target="_blank" rel="noopener">request one here</a>. A planning sketch, not an FAA airspace determination or design approval.</p>
+      <p class="legal">© 2026 Basil Yap. Free for noncommercial use under the <a href="https://polyformproject.org/licenses/noncommercial/1.0.0" target="_blank" rel="noopener">PolyForm Noncommercial License 1.0.0</a>. Commercial use needs a license: <a href="https://docs.google.com/forms/d/e/1FAIpQLSf1xf1FYvdN0Jw-cdIcSiQatTBELTr2MrMmcFuTI27Qir7J-w/viewform" target="_blank" rel="noopener">request one here</a>. Each result cites its source in draft AC 150/5390-4. A planning sketch, not an FAA airspace determination or design approval. Provided as is; check all work before relying on it.</p>
     </div>
   </aside>
 </div>
@@ -936,7 +935,7 @@ ${status}
 <tr><td>Heliport elevation</td><td>${ff(design.heliportElev)} ft MSL</td></tr>
 ${design.surfaces.map(s => `<tr><td>Path ${s.label}</td><td>course ${Math.round(s.course)}°T (${Math.round(s.courseMag)}°M), ${s.slope}:1, ${ff(s.endHeight)} ft above heliport at 4,000 ft${s.curve ? `, curving ${s.curve.dir} ${Math.round(s.curve.turn)}° after ${Math.round(s.curve.straight)} ft (radius ${Math.round(s.curve.radius)} ft)` : ""}</td></tr>`).join("")}
 <tr><td>Magnetic declination</td><td>${esc(declText(design.decl))} (WMM2025, ${design.decYear.toFixed(1)})</td></tr>
-</table><p>Generated from draft AC 150/5390-4 (10/22/2026). Planning sketch, not a design approval.</p>`;
+</table><p>Generated from draft AC 150/5390-4 (10/22/2026). Planning sketch, not a design approval. Use at your own risk and check all work.</p>`;
   const ext = `<ExtendedData><Data name="non_standard"><value>${failed.length ? "true" : "false"}</value></Data>${failed.length ? `<Data name="failed_checks"><value>${esc(failed.join(" | "))}</value></Data>` : ""}<Data name="magnetic_declination_deg"><value>${design.decl.toFixed(2)}</value></Data></ExtendedData>`;
   return `<?xml version="1.0" encoding="UTF-8"?>
 <kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>${esc(site.name)}${failed.length ? " (non-standard)" : ""}</name>${failed.length ? `<Snippet maxLines="2">Non-standard: ${esc(failed.length === 1 ? failed[0] : failed.length + " checks failed. Open the site placemark for the list.")}</Snippet>` : ""}
@@ -1393,9 +1392,7 @@ function drawAir3d() {
       for (let i = 0; i < ring.length - 1; i += step) viewer.entities.add({ polyline: { positions: C.Cartesian3.fromDegreesArrayHeights([ring[i][0], ring[i][1], lo, ring[i][0], ring[i][1], hi]), width: 1, material: col.withAlpha(.45) } });
     });
     const n = near[`${p.CLASS}|${p.NAME}`];
-    if (n && n.f === f) viewer.entities.add({ position: C.Cartesian3.fromDegrees(n.x, n.y, hi), label: { text: `${airName(p)} ${st.label}\n${airRange(p)}`, font: "500 12px -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif",
-      fillColor: C.Color.WHITE, showBackground: true, backgroundColor: col.withAlpha(.92), backgroundPadding: new C.Cartesian2(8, 5), verticalOrigin: C.VerticalOrigin.BOTTOM,
-      pixelOffset: new C.Cartesian2(0, -6), disableDepthTestDistance: Number.POSITIVE_INFINITY } });
+    if (n && n.f === f) viewer.entities.add({ position: C.Cartesian3.fromDegrees(n.x, n.y, hi), billboard: pillBillboard(`${airName(p)} ${st.label}\n${airRange(p)}`, col.withAlpha(.92).toCssColorString(), 12, { pixelOffset: new C.Cartesian2(0, -6) }) });
   });
 }
 // Pull the camera back far enough to see the airspace around the pad.
@@ -1413,6 +1410,20 @@ function flyAirspace() {
 }
 // ---------- Landing facilities (FAA NASR APT_BASE, bundled in data/facilities.js) ----------
 const FAC_TYPES = { A: ["Airport", ""], H: ["Heliport", "H"], C: ["Seaplane base", "S"], G: ["Gliderport", "G"], U: ["Ultralight park", "U"], B: ["Balloonport", "B"] };
+// Facility badges in sectional-chart style: blue with a control tower, magenta without; filled for public use,
+// outlined for private use. Airplane for airports, helicopter for heliports, anchor for seaplane bases.
+const FAC_TOWER = "#1d5fbf", FAC_NOTOWER = "#a3166f";
+const FAC_GLYPH = {
+  A: '<path d="M12 3.2c.8 0 1.2.8 1.2 1.8v4.6l6.6 3.8v1.8l-6.6-2v3.9l2 1.5v1.4L12 19.1 8.8 20v-1.4l2-1.5v-3.9l-6.6 2v-1.8l6.6-3.8V5c0-1 .4-1.8 1.2-1.8z" fill="G"/>',
+  H: '<g fill="none" stroke="G" stroke-width="1.6" stroke-linecap="round"><path d="M4.5 7h14M11.5 7v2.4M21 9.2v3.6M15.6 12.3 21 11M7 18h9M8.6 16.2V18M14 16.2V18"/></g><ellipse cx="11" cy="12.6" rx="4.8" ry="3.4" fill="G"/>',
+  C: '<g fill="none" stroke="G" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="5.2" r="1.7"/><path d="M12 7v12.5M8.2 9.8h7.6M5.6 13.5a6.4 6.4 0 0 0 12.8 0"/></g>',
+};
+function facSvg(type, pub, tower) {
+  const col = tower ? FAC_TOWER : FAC_NOTOWER, ink = pub ? "#fff" : col;
+  const glyph = FAC_GLYPH[type] ? FAC_GLYPH[type].replace(/="G"/g, `="${ink}"`)
+    : `<text x="12" y="16.2" text-anchor="middle" font-family="-apple-system,Helvetica,Arial,sans-serif" font-weight="700" font-size="11" fill="${ink}">${FAC_TYPES[type] ? FAC_TYPES[type][1] : "?"}</text>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10.6" fill="${pub ? col : "#fff"}" stroke="${pub ? "#fff" : col}" stroke-width="${pub ? 1.4 : 2}"/>${glyph}</svg>`;
+}
 const fac = { list: [], key: "", script: null, failed: false };
 const facLayer = L.layerGroup().addTo(map);
 if (!S.facTypes) S.facTypes = "AHCGUB";
@@ -1451,10 +1462,8 @@ function drawFac2d() {
   facLayer.clearLayers();
   if (!S.facilities) return;
   facShown().forEach(f => {
-    const letter = FAC_TYPES[f.type][1];
-    const ring = f.tower ? ";outline:2px solid #1c1c1e;outline-offset:1.5px" : "";
-    const m = L.marker([f.lat, f.lon], { icon: L.divIcon({ className: "", html: `<div class="fac ${f.use === "PU" ? "pu" : "pr"}${letter ? "" : " dot"}" style="${ring}">${letter}</div>`, iconSize: [18, 18], iconAnchor: [9, 9] }), keyboard: false });
-    m.bindTooltip(`<b>${f.id} ${f.name}</b><br>${f.city}, ${f.state}<br>${facLabel(f)}<br>Elevation ${f.elev.toLocaleString("en-US")} ft · ${fmtMi(f.mi)} mi from the pad`, { direction: "top", offset: [0, -10] });
+    const m = L.marker([f.lat, f.lon], { icon: L.divIcon({ className: "", html: `<div class="fac">${facSvg(f.type, f.use === "PU", f.tower)}</div>`, iconSize: [22, 22], iconAnchor: [11, 11] }), keyboard: false });
+    m.bindTooltip(`<b>${f.id} ${f.name}</b><br>${f.city}, ${f.state}<br>${facLabel(f)}<br>Elevation ${f.elev.toLocaleString("en-US")} ft · ${fmtMi(f.mi)} mi from the pad`, { direction: "top", offset: [0, -12] });
     m.addTo(facLayer);
   });
 }
@@ -1465,9 +1474,10 @@ function drawFac3d() {
     const pub = f.use === "PU";
     viewer.entities.add({ name: `${f.id} ${f.name}`, description: `<p>${f.city}, ${f.state}<br>${facLabel(f)}<br>Elevation ${f.elev} ft · ${fmtMi(f.mi)} mi from the pad</p>`,
       position: C.Cartesian3.fromDegrees(f.lon, f.lat, f.elev * FT + 15),
-      point: { pixelSize: 9, color: pub ? C.Color.fromCssColorString("#1c1c1e") : C.Color.WHITE, outlineColor: pub ? C.Color.WHITE : C.Color.fromCssColorString("#1c1c1e"), outlineWidth: 2, disableDepthTestDistance: Number.POSITIVE_INFINITY, distanceDisplayCondition: new C.DistanceDisplayCondition(0, 45000) },
+      billboard: { image: "data:image/svg+xml;charset=utf-8," + encodeURIComponent(facSvg(f.type, pub, f.tower).replace("<svg ", '<svg width="64" height="64" ')), width: 24, height: 24,
+        disableDepthTestDistance: Number.POSITIVE_INFINITY, distanceDisplayCondition: new C.DistanceDisplayCondition(0, 45000) },
       label: { text: `${FAC_TYPES[f.type][1] ? FAC_TYPES[f.type][1] + " · " : ""}${f.id}`, font: "600 12px -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif", fillColor: C.Color.WHITE,
-        outlineColor: C.Color.BLACK, outlineWidth: 3, style: C.LabelStyle.FILL_AND_OUTLINE, pixelOffset: new C.Cartesian2(0, -14), verticalOrigin: C.VerticalOrigin.BOTTOM,
+        outlineColor: C.Color.BLACK, outlineWidth: 3, style: C.LabelStyle.FILL_AND_OUTLINE, pixelOffset: new C.Cartesian2(0, -15), verticalOrigin: C.VerticalOrigin.BOTTOM,
         distanceDisplayCondition: new C.DistanceDisplayCondition(0, 12000), disableDepthTestDistance: Number.POSITIVE_INFINITY } });
   });
 }
@@ -1639,7 +1649,10 @@ function renderLegend() {
     .map(c => `<div><span class="sw" style="background:transparent;box-shadow:inset 0 0 0 2px ${AIR_STYLE[c].color}${AIR_STYLE[c].dash ? ";border:1px dashed #fff" : ""}"></span>${AIR_STYLE[c].label}</div>`) : [];
   const p77Rows = S.part77 ? [["approach", "Part 77 approach"], ["transitional", "Part 77 transitional"], ["horizontal", "Part 77 horizontal"], ["conical", "Part 77 conical"]]
     .map(([k, t]) => `<div><span class="sw" style="background:${P77C[k]}"></span>${t}</div>`) : [];
-  const facRows = S.facilities ? [`<div><span class="sw" style="background:#1c1c1e;border-radius:50%"></span>Public use facility</div>`, `<div><span class="sw" style="background:#fff;border-radius:50%;box-shadow:inset 0 0 0 1.5px #1c1c1e"></span>Private use facility</div>`] : [];
+  const ico = (t, pub, tower) => `<span class="sw ico">${facSvg(t, pub, tower)}</span>`;
+  const facRows = S.facilities ? [
+    ...[["A", "Airport"], ["H", "Heliport"], ["C", "Seaplane base"]].filter(([t]) => S.facTypes.includes(t)).map(([t, n]) => `<div>${ico(t, true, false)}${n}</div>`),
+    `<div>${ico("A", true, true)}Blue: control tower</div>`, `<div>${ico("A", false, false)}Outlined: private use</div>`] : [];
   $("legend").innerHTML = LEG.map(([k, t]) => `<div><span class="sw" style="background:${COLORS[k]}"></span>${t}</div>`).concat(airRows, p77Rows, facRows).join("");
 }
 async function refreshAir() {
@@ -1930,6 +1943,20 @@ $("helpBtn").onclick = () => openSheet("helpSheet");
 $("srcBtn").onclick = () => openSheet("srcSheet");
 
 // ---------- 3D view (CesiumJS, loaded on first use) ----------
+// 3D tag drawn to a canvas and shown as a billboard. Cesium's own label backgrounds come from a shared texture
+// atlas that can fill with speckled noise as it grows (worse once 3D buildings load), so tags draw their own pill.
+function pillBillboard(text, color, size = 13, extra = {}) {
+  const C = window.Cesium, dpr = Math.min(3, window.devicePixelRatio || 1), lines = String(text).split("\n");
+  const font = `500 ${size * dpr}px -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif`;
+  const cv = document.createElement("canvas"), g = cv.getContext("2d"); g.font = font;
+  const padX = 9 * dpr, padY = 6 * dpr, lh = Math.round(size * 1.3 * dpr);
+  const w = Math.ceil(Math.max(...lines.map(l => g.measureText(l).width)) + 2 * padX), h = lines.length * lh + 2 * padY;
+  cv.width = w; cv.height = h;
+  g.fillStyle = color; g.beginPath(); g.roundRect(0, 0, w, h, 7 * dpr); g.fill();
+  g.font = font; g.fillStyle = "#fff"; g.textBaseline = "middle"; g.textAlign = "center";
+  lines.forEach((l, i) => g.fillText(l, w / 2, padY + lh * i + lh / 2));
+  return { image: cv, width: w / dpr, height: h / dpr, verticalOrigin: C.VerticalOrigin.BOTTOM, disableDepthTestDistance: Number.POSITIVE_INFINITY, ...extra };
+}
 const CESIUM_VER = "1.119.0";
 const CESIUM_BASE = `https://cdn.jsdelivr.net/npm/cesium@${CESIUM_VER}/Build/Cesium/`;
 let mode3d = false, viewer = null, cesiumLoading = null, baseH = 0, baseKey = "", hasTerrain = false, terrainNote = "", osmTiles = null;
@@ -2037,14 +2064,12 @@ async function render3d(fly) {
       viewer.entities.add({ name: f.name, description: desc, polyline: { positions: pos, width: el === "approach" ? 2.5 : 1.5, material: line } });
     }
   }));
-  const pill = (text, color) => ({ text, font: "500 13px -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif", fillColor: C.Color.WHITE, showBackground: true,
-    backgroundColor: C.Color.fromCssColorString(color), backgroundPadding: new C.Cartesian2(9, 6), verticalOrigin: C.VerticalOrigin.BOTTOM, disableDepthTestDistance: Number.POSITIVE_INFINITY });
   design.surfaces.forEach(s => {
     const [la, lo] = prj.toLL(s.end[0], s.end[1]);
     viewer.entities.add({ position: C.Cartesian3.fromDegrees(lo, la, baseH + (deckFt + s.endHeight) * FT), point: { pixelSize: 8, color: C.Color.WHITE, outlineColor: C.Color.fromCssColorString(COLORS.approach), outlineWidth: 2.5, disableDepthTestDistance: Number.POSITIVE_INFINITY },
-      label: { ...pill(`Path ${s.label} · ${s.slope}:1 · ${Math.round(s.endHeight)} ft`, COLORS.approach), pixelOffset: new C.Cartesian2(0, -14), distanceDisplayCondition: new C.DistanceDisplayCondition(0, 9000) } });
+      billboard: pillBillboard(`Path ${s.label} · ${s.slope}:1 · ${Math.round(s.endHeight)} ft`, COLORS.approach, 13, { pixelOffset: new C.Cartesian2(0, -14), distanceDisplayCondition: new C.DistanceDisplayCondition(0, 9000) }) });
   });
-  viewer.entities.add({ position: C.Cartesian3.fromDegrees(S.lon, S.lat, baseH + deckFt * FT), label: { ...pill(S.name || "Vertiport", "#1c1c1e"), pixelOffset: new C.Cartesian2(0, -18) } });
+  viewer.entities.add({ position: C.Cartesian3.fromDegrees(S.lon, S.lat, baseH + deckFt * FT), billboard: pillBillboard(S.name || "Vertiport", "#1c1c1e", 13, { pixelOffset: new C.Cartesian2(0, -18) }) });
   drawAir3d(); drawP77_3d(); drawFac3d();
   $("camPaths").innerHTML = design.surfaces.map((s, i) => `<button data-final="${i}" aria-pressed="false" title="Pilot's view on final, from the outer end of the surface">Final ${s.label}</button>`).join("");
   if (sim.on) simPrepare(); else if (fly) flyOverview();
